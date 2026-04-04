@@ -5,6 +5,12 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
+data class StoredTokens(
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAt: Long  // System.currentTimeMillis() + expires_in * 1000
+)
+
 class EncryptedTokenStore(context: Context) {
 
     private val prefs: SharedPreferences by lazy {
@@ -18,15 +24,32 @@ class EncryptedTokenStore(context: Context) {
         )
     }
 
-    fun saveToken(profileId: String, token: String) {
-        prefs.edit().putString("token_$profileId", token).apply()
+    fun saveTokens(profileId: String, tokens: StoredTokens) {
+        prefs.edit()
+            .putString("access_$profileId", tokens.accessToken)
+            .putString("refresh_$profileId", tokens.refreshToken)
+            .putLong("expires_$profileId", tokens.expiresAt)
+            .apply()
     }
 
-    fun getToken(profileId: String): String? {
-        return prefs.getString("token_$profileId", null)
+    fun getTokens(profileId: String): StoredTokens? {
+        val access = prefs.getString("access_$profileId", null) ?: return null
+        val refresh = prefs.getString("refresh_$profileId", null) ?: return null
+        val expires = prefs.getLong("expires_$profileId", 0L)
+        return StoredTokens(access, refresh, expires)
     }
 
-    fun removeToken(profileId: String) {
-        prefs.edit().remove("token_$profileId").apply()
+    fun removeTokens(profileId: String) {
+        prefs.edit()
+            .remove("access_$profileId")
+            .remove("refresh_$profileId")
+            .remove("expires_$profileId")
+            .apply()
+    }
+
+    fun isExpired(profileId: String): Boolean {
+        val expires = prefs.getLong("expires_$profileId", 0L)
+        // Refresh 2 minutes before actual expiry
+        return System.currentTimeMillis() > expires - 120_000L
     }
 }
