@@ -58,7 +58,8 @@ class MainActivity : ComponentActivity() {
             .setScopes(arrayOf(
                 "user-read-private",
                 "user-read-playback-state",
-                "user-read-currently-playing"
+                "user-read-currently-playing",
+                "user-modify-playback-state"
             ))
             .setCustomParam("code_challenge_method", "S256")
             .setCustomParam("code_challenge", challenge)

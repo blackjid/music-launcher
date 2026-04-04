@@ -35,6 +35,21 @@ class PlaybackPoller(
         pollingJob = null
     }
 
+    suspend fun togglePlayPause(profileId: String, isPlaying: Boolean) {
+        val token = profileRepository.getValidToken(profileId) ?: return
+        if (isPlaying) SpotifyWebApi.pause(token) else SpotifyWebApi.play(token)
+    }
+
+    suspend fun skipNext(profileId: String) {
+        val token = profileRepository.getValidToken(profileId) ?: return
+        SpotifyWebApi.skipNext(token)
+    }
+
+    suspend fun skipPrevious(profileId: String) {
+        val token = profileRepository.getValidToken(profileId) ?: return
+        SpotifyWebApi.skipPrevious(token)
+    }
+
     private suspend fun pollAllAccounts() {
         val profiles = profileRepository.profiles.value
         if (profiles.isEmpty()) return

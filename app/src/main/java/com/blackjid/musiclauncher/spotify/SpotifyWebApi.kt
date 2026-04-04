@@ -24,6 +24,38 @@ data class WebPlaybackState(
 object SpotifyWebApi {
     private const val TAG = "SpotifyWebApi"
 
+    suspend fun play(accessToken: String): Boolean = withContext(Dispatchers.IO) {
+        sendCommand("https://api.spotify.com/v1/me/player/play", "PUT", accessToken)
+    }
+
+    suspend fun pause(accessToken: String): Boolean = withContext(Dispatchers.IO) {
+        sendCommand("https://api.spotify.com/v1/me/player/pause", "PUT", accessToken)
+    }
+
+    suspend fun skipNext(accessToken: String): Boolean = withContext(Dispatchers.IO) {
+        sendCommand("https://api.spotify.com/v1/me/player/next", "POST", accessToken)
+    }
+
+    suspend fun skipPrevious(accessToken: String): Boolean = withContext(Dispatchers.IO) {
+        sendCommand("https://api.spotify.com/v1/me/player/previous", "POST", accessToken)
+    }
+
+    private fun sendCommand(urlStr: String, method: String, accessToken: String): Boolean {
+        return try {
+            val conn = URL(urlStr).openConnection() as HttpURLConnection
+            conn.requestMethod = method
+            conn.setRequestProperty("Authorization", "Bearer $accessToken")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.doOutput = false
+            val code = conn.responseCode
+            code in 200..204
+        } catch (e: Exception) {
+            Log.e(TAG, "Command $method $urlStr failed", e)
+            false
+        }
+    }
+
     suspend fun getCurrentPlayback(
         accessToken: String,
         profileId: String,
@@ -31,7 +63,7 @@ object SpotifyWebApi {
         profileColor: Long
     ): WebPlaybackState? = withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://api.spotify.com/v1/me/player/currently-playing")
+            val url = URL("https://api.spotify.com/v1/me/player")
             val conn = url.openConnection() as HttpURLConnection
             conn.setRequestProperty("Authorization", "Bearer $accessToken")
             conn.connectTimeout = 5000

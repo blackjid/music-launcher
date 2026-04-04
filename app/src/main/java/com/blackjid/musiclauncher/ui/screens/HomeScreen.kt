@@ -146,12 +146,13 @@ fun HomeScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 72.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(allPlayback, key = { it.profileId }) { state ->
                     AccountPlaybackCard(
                         state = state,
+                        poller = playbackPoller,
                         onTap = {
                             val intent = context.packageManager
                                 .getLaunchIntentForPackage(SPOTIFY_PACKAGE)
