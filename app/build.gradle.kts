@@ -26,6 +26,7 @@ android {
         manifestPlaceholders["redirectHostName"] = "callback"
 
         buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"${localProperties.getProperty("SPOTIFY_CLIENT_ID", "")}\"")
+        buildConfigField("String", "SPOTIFY_CLIENT_SECRET", "\"${localProperties.getProperty("SPOTIFY_CLIENT_SECRET", "")}\"")
     }
 
     buildTypes {

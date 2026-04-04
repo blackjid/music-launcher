@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.blackjid.musiclauncher.kiosk.KioskManager
-import com.blackjid.musiclauncher.spotify.SpotifyManager
+import com.blackjid.musiclauncher.spotify.SpotifyTokenManager
 import com.blackjid.musiclauncher.spotify.SpotifyUserApi
 import com.blackjid.musiclauncher.ui.navigation.AppNavigation
 import com.blackjid.musiclauncher.ui.theme.MusicLauncherTheme
@@ -22,9 +22,11 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val SPOTIFY_AUTH_REQUEST_CODE = 1337
+        private const val REDIRECT_URI = "com.blackjid.musiclauncher://callback"
     }
 
     private lateinit var kioskManager: KioskManager
+    private var codeVerifier: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,20 +44,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun requestSpotifyAuth() {
-        val app = applicationContext as MusicLauncherApp
+    private fun requestSpotifyAuth() {
+        // Generate PKCE verifier/challenge
+        val verifier = SpotifyTokenManager.generateCodeVerifier()
+        val challenge = SpotifyTokenManager.generateCodeChallenge(verifier)
+        codeVerifier = verifier
+
         val request = AuthorizationRequest.Builder(
-            app.spotifyManager.clientId,
-            AuthorizationResponse.Type.TOKEN,
-            SpotifyManager.REDIRECT_URI
+            BuildConfig.SPOTIFY_CLIENT_ID,
+            AuthorizationResponse.Type.CODE,
+            REDIRECT_URI
         )
             .setScopes(arrayOf(
-                "app-remote-control",
-                "streaming",
                 "user-read-private",
                 "user-read-playback-state",
                 "user-read-currently-playing"
             ))
+            .setCustomParam("code_challenge_method", "S256")
+            .setCustomParam("code_challenge", challenge)
             .build()
 
         AuthorizationClient.openLoginActivity(this, SPOTIFY_AUTH_REQUEST_CODE, request)
@@ -68,31 +74,46 @@ class MainActivity : ComponentActivity() {
         if (requestCode == SPOTIFY_AUTH_REQUEST_CODE) {
             val response = AuthorizationClient.getResponse(resultCode, data)
             val app = applicationContext as MusicLauncherApp
+            val verifier = codeVerifier
 
             when (response.type) {
-                AuthorizationResponse.Type.TOKEN -> {
-                    val token = response.accessToken
-                    Log.d(TAG, "Spotify auth success, fetching user info")
-
+                AuthorizationResponse.Type.CODE -> {
+                    if (verifier == null) {
+                        Log.e(TAG, "No code verifier stored — cannot exchange code")
+                        return
+                    }
+                    Log.d(TAG, "Got auth code, exchanging for tokens via PKCE")
                     lifecycleScope.launch {
-                        val user = SpotifyUserApi.getCurrentUser(token)
-                        if (user != null) {
-                            Log.d(TAG, "Logged in as: ${user.displayName} (${user.id})")
-                            app.profileRepository.upsertFromSpotify(
-                                spotifyUserId = user.id,
-                                displayName = user.displayName,
-                                token = token
-                            )
+                        val tokens = SpotifyTokenManager.exchangeCode(
+                            code = response.code,
+                            codeVerifier = verifier,
+                            clientId = BuildConfig.SPOTIFY_CLIENT_ID,
+                            clientSecret = BuildConfig.SPOTIFY_CLIENT_SECRET,
+                            redirectUri = REDIRECT_URI
+                        )
+                        if (tokens != null) {
+                            val user = SpotifyUserApi.getCurrentUser(tokens.accessToken)
+                            if (user != null) {
+                                Log.d(TAG, "Added account: ${user.displayName}")
+                                app.profileRepository.upsertFromSpotify(
+                                    spotifyUserId = user.id,
+                                    displayName = user.displayName,
+                                    tokens = tokens
+                                )
+                            }
+                        } else {
+                            Log.e(TAG, "Token exchange failed")
                         }
-                        // Connect App Remote after profile is set up
-                        app.spotifyManager.connect()
+                        codeVerifier = null
                     }
                 }
                 AuthorizationResponse.Type.ERROR -> {
                     Log.e(TAG, "Spotify auth error: ${response.error}")
+                    codeVerifier = null
                 }
                 else -> {
-                    Log.w(TAG, "Spotify auth cancelled or unknown response")
+                    Log.w(TAG, "Spotify auth cancelled")
+                    codeVerifier = null
                 }
             }
         }

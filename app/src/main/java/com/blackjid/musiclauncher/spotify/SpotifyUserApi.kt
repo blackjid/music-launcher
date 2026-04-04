@@ -31,7 +31,8 @@ object SpotifyUserApi {
                     displayName = json.optString("display_name", json.getString("id"))
                 )
             } else {
-                Log.e(TAG, "Failed to get user: ${conn.responseCode}")
+                val errorBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
+                Log.e(TAG, "Failed to get user: ${conn.responseCode} — $errorBody")
                 null
             }
         } catch (e: Exception) {
