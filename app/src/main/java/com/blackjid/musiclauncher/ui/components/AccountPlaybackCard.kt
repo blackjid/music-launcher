@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import java.net.URL
 @Composable
 fun AccountPlaybackCard(
     state: WebPlaybackState,
+    onTap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var albumArt by remember(state.albumArtUrl, state.albumArtBitmap) {
@@ -60,6 +62,7 @@ fun AccountPlaybackCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onTap)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
