@@ -18,27 +18,19 @@ object Routes {
 fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
     val navController = rememberNavController()
     val app = LocalContext.current.applicationContext as MusicLauncherApp
-    val profileRepository = app.profileRepository
-    val playbackPoller = app.playbackPoller
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.HOME
-    ) {
+    NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
-                profileRepository = profileRepository,
-                playbackPoller = playbackPoller,
+                profileRepository = app.profileRepository,
+                playbackPoller = app.playbackPoller,
                 onConnectSpotify = onRequestSpotifyAuth,
-                onNavigateToSettings = {
-                    navController.navigate(Routes.SETTINGS)
-                }
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
-
         composable(Routes.SETTINGS) {
             SettingsScreen(
-                profileRepository = profileRepository,
+                profileRepository = app.profileRepository,
                 onAddAccount = onRequestSpotifyAuth,
                 onBack = { navController.popBackStack() }
             )

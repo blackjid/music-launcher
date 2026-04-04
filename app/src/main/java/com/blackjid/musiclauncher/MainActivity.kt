@@ -45,7 +45,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestSpotifyAuth() {
-        // Generate PKCE verifier/challenge
         val verifier = SpotifyTokenManager.generateCodeVerifier()
         val challenge = SpotifyTokenManager.generateCodeChallenge(verifier)
         codeVerifier = verifier
