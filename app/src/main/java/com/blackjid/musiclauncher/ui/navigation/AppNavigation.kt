@@ -29,6 +29,7 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
                 profileRepository = app.profileRepository,
                 playbackPoller = app.playbackPoller,
                 spotifyManager = app.spotifyManager,
+                speakerMonitor = app.speakerMonitor,
                 onConnectSpotify = onRequestSpotifyAuth,
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToNowPlaying = { profileId ->
@@ -44,6 +45,7 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
             NowPlayingScreen(
                 profileId = profileId,
                 spotifyManager = app.spotifyManager,
+                speakerMonitor = app.speakerMonitor,
                 playbackPoller = app.playbackPoller,
                 onBack = { navController.popBackStack() }
             )
@@ -51,6 +53,7 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 profileRepository = app.profileRepository,
+                settingsStore = app.settingsStore,
                 onAddAccount = onRequestSpotifyAuth,
                 onBack = { navController.popBackStack() }
             )

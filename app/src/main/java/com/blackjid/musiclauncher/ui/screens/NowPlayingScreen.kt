@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
+import com.blackjid.musiclauncher.spotify.SpeakerMonitor
 import com.blackjid.musiclauncher.spotify.SpotifyDevice
 import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
@@ -63,10 +64,12 @@ import kotlinx.coroutines.launch
 fun NowPlayingScreen(
     profileId: String,
     spotifyManager: SpotifyManager,
+    speakerMonitor: SpeakerMonitor,
     playbackPoller: PlaybackPoller,
     onBack: () -> Unit
 ) {
     val state by spotifyManager.playerState.collectAsState()
+    val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val scope = rememberCoroutineScope()
     val hasTrack = state.trackName.isNotEmpty()
 
@@ -124,12 +127,29 @@ fun NowPlayingScreen(
                 )
             }
 
-            Text(
-                text = "Now Playing",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = FgMuted
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Now Playing",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = FgMuted
+                )
+                if (isOnPhoneSpeaker) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFD97706))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Play on a speaker",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier

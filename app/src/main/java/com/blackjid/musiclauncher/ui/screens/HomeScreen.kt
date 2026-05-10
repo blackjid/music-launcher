@@ -57,6 +57,7 @@ import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.profile.Profile
 import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
+import com.blackjid.musiclauncher.spotify.SpeakerMonitor
 import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.spotify.WebPlaybackState
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
@@ -68,8 +69,11 @@ import com.blackjid.musiclauncher.ui.theme.FgMuted
 import com.blackjid.musiclauncher.ui.theme.FgPrimary
 import com.blackjid.musiclauncher.ui.theme.FgSecondary
 import com.blackjid.musiclauncher.ui.theme.SpotifyGreen
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 import java.time.LocalDate
@@ -89,6 +93,7 @@ fun HomeScreen(
     profileRepository: ProfileRepository,
     playbackPoller: PlaybackPoller,
     spotifyManager: SpotifyManager,
+    speakerMonitor: SpeakerMonitor,
     onConnectSpotify: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToNowPlaying: (String) -> Unit
@@ -97,6 +102,7 @@ fun HomeScreen(
     val profiles by profileRepository.profiles.collectAsState()
     val allPlayback by playbackPoller.allPlaybackStates.collectAsState()
     val appRemoteState by spotifyManager.playerState.collectAsState()
+    val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
 
     var clockText by remember { mutableStateOf(LocalTime.now().format(ClockFormatter)) }
     var dateText by remember { mutableStateOf(LocalDate.now().format(DateFormatter)) }
@@ -167,6 +173,21 @@ fun HomeScreen(
                             fontSize = 14.sp,
                             color = FgMuted
                         )
+                        if (isOnPhoneSpeaker) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFD97706))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "Play on a speaker",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = {
                                 context.packageManager.getLaunchIntentForPackage(SPOTIFY_PACKAGE)
