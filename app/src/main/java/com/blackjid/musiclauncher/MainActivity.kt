@@ -1,7 +1,9 @@
 package com.blackjid.musiclauncher
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -116,6 +118,15 @@ class MainActivity : ComponentActivity() {
                     codeVerifier = null
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!Settings.canDrawOverlays(this)) {
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            )
         }
     }
 
