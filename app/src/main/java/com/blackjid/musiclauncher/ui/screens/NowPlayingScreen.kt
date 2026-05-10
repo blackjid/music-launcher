@@ -1,7 +1,5 @@
 package com.blackjid.musiclauncher.ui.screens
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -49,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
 import com.blackjid.musiclauncher.spotify.SpotifyDevice
+import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
 import com.blackjid.musiclauncher.ui.theme.ActiveRowBg
 import com.blackjid.musiclauncher.ui.theme.BgPrimary
@@ -57,37 +56,37 @@ import com.blackjid.musiclauncher.ui.theme.BgTertiary
 import com.blackjid.musiclauncher.ui.theme.FgMuted
 import com.blackjid.musiclauncher.ui.theme.FgPrimary
 import com.blackjid.musiclauncher.ui.theme.FgSecondary
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.net.URL
 
 @Composable
 fun NowPlayingScreen(
     profileId: String,
+    spotifyManager: SpotifyManager,
     playbackPoller: PlaybackPoller,
     onBack: () -> Unit
 ) {
-    val allPlayback by playbackPoller.allPlaybackStates.collectAsState()
-    val playback = allPlayback.find { it.profileId == profileId }
+    val state by spotifyManager.playerState.collectAsState()
     val scope = rememberCoroutineScope()
+    val hasTrack = state.trackName.isNotEmpty()
 
-    var showDevicePicker by remember { mutableStateOf(false) }
-    var devices by remember { mutableStateOf<List<SpotifyDevice>?>(null) }
+    // Reconnect in case Spotify was restarted
+    LaunchedEffect(Unit) { spotifyManager.connect() }
 
-    var albumArt by remember(playback?.albumArtUrl) { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(playback?.albumArtUrl) {
-        albumArt = playback?.albumArtUrl?.let { url ->
-            withContext(Dispatchers.IO) {
-                try {
-                    val conn = URL(url).openConnection()
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 5000
-                    BitmapFactory.decodeStream(conn.getInputStream())
-                } catch (_: Exception) { null }
+    // Local 1s tick for smooth progress bar while playing
+    var displayPositionMs by remember { mutableStateOf(0L) }
+    LaunchedEffect(state.positionMs, state.isPlaying) {
+        displayPositionMs = state.positionMs
+        if (state.isPlaying) {
+            while (true) {
+                delay(1000)
+                displayPositionMs += 1000
             }
         }
     }
+
+    var showDevicePicker by remember { mutableStateOf(false) }
+    var devices by remember { mutableStateOf<List<SpotifyDevice>?>(null) }
 
     Column(
         modifier = Modifier
@@ -132,37 +131,31 @@ fun NowPlayingScreen(
                 color = FgMuted
             )
 
-            if (!playback?.deviceName.isNullOrEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(9999.dp))
-                        .background(BgSecondary)
-                        .clickable {
-                            devices = null
-                            showDevicePicker = true
-                            scope.launch {
-                                devices = playbackPoller.getAvailableDevices(profileId)
-                            }
-                        }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_spotify),
-                        contentDescription = null,
-                        tint = FgMuted,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Text(
-                        text = playback!!.deviceName,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = FgSecondary
-                    )
-                }
-            } else {
-                Spacer(modifier = Modifier.width(80.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(9999.dp))
+                    .background(BgSecondary)
+                    .clickable {
+                        devices = null
+                        showDevicePicker = true
+                        scope.launch { devices = playbackPoller.getAvailableDevices(profileId) }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_spotify),
+                    contentDescription = null,
+                    tint = FgMuted,
+                    modifier = Modifier.size(12.dp)
+                )
+                Text(
+                    text = "Switch device",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = FgSecondary
+                )
             }
         }
 
@@ -174,10 +167,11 @@ fun NowPlayingScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(44.dp)
         ) {
-            // Album art
+            // Album art — provided directly as Bitmap by App Remote
+            val albumArt = state.albumArt
             if (albumArt != null) {
                 Image(
-                    bitmap = albumArt!!.asImageBitmap(),
+                    bitmap = albumArt.asImageBitmap(),
                     contentDescription = "Album art",
                     modifier = Modifier
                         .fillMaxHeight()
@@ -196,16 +190,15 @@ fun NowPlayingScreen(
             }
 
             // Controls panel
-            if (playback != null) {
+            if (hasTrack) {
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // Song title + artist
                     Text(
-                        text = playback.trackName,
+                        text = state.trackName,
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Bold,
                         color = FgPrimary,
@@ -216,7 +209,7 @@ fun NowPlayingScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = playback.artistName,
+                        text = state.artistName,
                         fontSize = 17.sp,
                         color = FgSecondary,
                         maxLines = 1,
@@ -233,8 +226,8 @@ fun NowPlayingScreen(
                             .clip(RoundedCornerShape(5.dp))
                             .background(BgTertiary)
                     ) {
-                        val progress = if (playback.durationMs > 0) {
-                            (playback.positionMs.toFloat() / playback.durationMs.toFloat()).coerceIn(0f, 1f)
+                        val progress = if (state.durationMs > 0) {
+                            (displayPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
                         } else 0f
                         Box(
                             modifier = Modifier
@@ -249,13 +242,13 @@ fun NowPlayingScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = formatMs(playback.positionMs),
+                            text = formatMs(displayPositionMs),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             color = FgMuted
                         )
                         Text(
-                            text = formatMs(playback.durationMs),
+                            text = formatMs(state.durationMs),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             color = FgMuted
@@ -264,14 +257,14 @@ fun NowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Playback controls
+                    // Playback controls — fire-and-forget via App Remote IPC
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { scope.launch { playbackPoller.skipPrevious(profileId) } },
+                            onClick = { spotifyManager.skipPrevious() },
                             modifier = Modifier.size(60.dp)
                         ) {
                             Icon(
@@ -289,18 +282,14 @@ fun NowPlayingScreen(
                                 .size(84.dp)
                                 .clip(CircleShape)
                                 .background(AccentPurple)
-                                .clickable {
-                                    scope.launch {
-                                        playbackPoller.togglePlayPause(profileId, playback.isPlaying)
-                                    }
-                                },
+                                .clickable { spotifyManager.togglePlayPause() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter = painterResource(
-                                    if (playback.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
                                 ),
-                                contentDescription = if (playback.isPlaying) "Pause" else "Play",
+                                contentDescription = if (state.isPlaying) "Pause" else "Play",
                                 tint = Color.White,
                                 modifier = Modifier.size(40.dp)
                             )
@@ -309,7 +298,7 @@ fun NowPlayingScreen(
                         Spacer(modifier = Modifier.width(24.dp))
 
                         IconButton(
-                            onClick = { scope.launch { playbackPoller.skipNext(profileId) } },
+                            onClick = { spotifyManager.skipNext() },
                             modifier = Modifier.size(60.dp)
                         ) {
                             Icon(
@@ -353,7 +342,9 @@ fun NowPlayingScreen(
             text = {
                 if (devices == null) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(color = AccentPurple, modifier = Modifier.size(32.dp))

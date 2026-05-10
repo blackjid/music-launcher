@@ -28,6 +28,7 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
             HomeScreen(
                 profileRepository = app.profileRepository,
                 playbackPoller = app.playbackPoller,
+                spotifyManager = app.spotifyManager,
                 onConnectSpotify = onRequestSpotifyAuth,
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToNowPlaying = { profileId ->
@@ -42,6 +43,7 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
             val profileId = backStackEntry.arguments?.getString("profileId") ?: ""
             NowPlayingScreen(
                 profileId = profileId,
+                spotifyManager = app.spotifyManager,
                 playbackPoller = app.playbackPoller,
                 onBack = { navController.popBackStack() }
             )

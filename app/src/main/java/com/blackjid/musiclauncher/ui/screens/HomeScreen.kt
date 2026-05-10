@@ -57,6 +57,7 @@ import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.profile.Profile
 import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
+import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.spotify.WebPlaybackState
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
 import com.blackjid.musiclauncher.ui.theme.ActiveRowBg
@@ -87,6 +88,7 @@ private const val BURN_IN_MAX_OFFSET_DP = 8f
 fun HomeScreen(
     profileRepository: ProfileRepository,
     playbackPoller: PlaybackPoller,
+    spotifyManager: SpotifyManager,
     onConnectSpotify: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToNowPlaying: (String) -> Unit
@@ -94,6 +96,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val profiles by profileRepository.profiles.collectAsState()
     val allPlayback by playbackPoller.allPlaybackStates.collectAsState()
+    val appRemoteState by spotifyManager.playerState.collectAsState()
 
     var clockText by remember { mutableStateOf(LocalTime.now().format(ClockFormatter)) }
     var dateText by remember { mutableStateOf(LocalDate.now().format(DateFormatter)) }
@@ -202,9 +205,15 @@ fun HomeScreen(
                 ) {
                     profiles.forEach { profile ->
                         val playback = allPlayback.find { it.profileId == profile.id }
+                        val isLocalTrack = appRemoteState.trackName.isNotEmpty() &&
+                            appRemoteState.trackName == playback?.trackName &&
+                            appRemoteState.artistName == playback?.artistName
                         ProfileRow(
                             profile = profile,
                             playback = playback,
+                            liveAlbumArt = if (isLocalTrack) appRemoteState.albumArt else null,
+                            liveIsPlaying = if (isLocalTrack) appRemoteState.isPlaying else null,
+                            livePositionMs = if (isLocalTrack) appRemoteState.positionMs else null,
                             onClick = { onNavigateToNowPlaying(profile.id) }
                         )
                     }
@@ -254,25 +263,44 @@ private fun ConnectSpotifyContent(
 private fun ProfileRow(
     profile: Profile,
     playback: WebPlaybackState?,
+    liveAlbumArt: Bitmap? = null,
+    liveIsPlaying: Boolean? = null,
+    livePositionMs: Long? = null,
     onClick: () -> Unit
 ) {
-    val isPlaying = playback?.isPlaying == true
+    val isPlaying = liveIsPlaying ?: (playback?.isPlaying == true)
     val rowBg = if (isPlaying) ActiveRowBg else BgSecondary
-    val rowAlpha = if (isPlaying || playback?.isPlaying == false) 1f else 0.5f
 
-    var albumArt by remember(playback?.albumArtUrl) { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(playback?.albumArtUrl) {
-        albumArt = playback?.albumArtUrl?.let { url ->
-            withContext(Dispatchers.IO) {
-                try {
-                    val conn = URL(url).openConnection()
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 5000
-                    BitmapFactory.decodeStream(conn.getInputStream())
-                } catch (_: Exception) { null }
+    val snapshotPositionMs = livePositionMs ?: (playback?.positionMs ?: 0L)
+    var positionMs by remember { mutableStateOf(snapshotPositionMs) }
+    LaunchedEffect(snapshotPositionMs, isPlaying) {
+        positionMs = snapshotPositionMs
+        if (isPlaying) {
+            while (true) {
+                delay(1000)
+                positionMs += 1000
             }
         }
     }
+    val rowAlpha = if (isPlaying || playback?.isPlaying == false) 1f else 0.5f
+
+    // Fetch album art via HTTP only when App Remote hasn't provided it directly
+    var httpAlbumArt by remember(playback?.albumArtUrl) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(playback?.albumArtUrl, liveAlbumArt != null) {
+        if (liveAlbumArt == null) {
+            httpAlbumArt = playback?.albumArtUrl?.let { url ->
+                withContext(Dispatchers.IO) {
+                    try {
+                        val conn = URL(url).openConnection()
+                        conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
+                        BitmapFactory.decodeStream(conn.getInputStream())
+                    } catch (_: Exception) { null }
+                }
+            }
+        }
+    }
+    val albumArt = liveAlbumArt ?: httpAlbumArt
 
     Row(
         modifier = Modifier
@@ -365,7 +393,7 @@ private fun ProfileRow(
                     )
                 } else if (playback.durationMs > 0) {
                     Text(
-                        text = "${formatMs(playback.positionMs)} / ${formatMs(playback.durationMs)}",
+                        text = "${formatMs(positionMs)} / ${formatMs(playback.durationMs)}",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         color = FgMuted
@@ -377,7 +405,7 @@ private fun ProfileRow(
                             .clip(RoundedCornerShape(50))
                             .background(BgTertiary)
                     ) {
-                        val progress = (playback.positionMs.toFloat() / playback.durationMs.toFloat())
+                        val progress = (positionMs.toFloat() / playback.durationMs.toFloat())
                             .coerceIn(0f, 1f)
                         Box(
                             modifier = Modifier
