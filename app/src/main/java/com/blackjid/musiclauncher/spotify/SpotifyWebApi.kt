@@ -27,6 +27,7 @@ data class WebPlaybackState(
     val albumArtBitmap: Bitmap? = null,
     val isPlaying: Boolean,
     val deviceName: String,
+    val deviceType: String = "",
     val positionMs: Long = 0,
     val durationMs: Long = 0
 )
@@ -171,6 +172,7 @@ object SpotifyWebApi {
 
         val device = obj.optJSONObject("device")
         val deviceName = device?.optString("name", "") ?: ""
+        val deviceType = device?.optString("type", "") ?: ""
         val positionMs = obj.optLong("progress_ms", 0)
         val durationMs = item.optLong("duration_ms", 0)
 
@@ -184,6 +186,7 @@ object SpotifyWebApi {
             albumArtUrl = albumArtUrl,
             isPlaying = isPlaying,
             deviceName = deviceName,
+            deviceType = deviceType,
             positionMs = positionMs,
             durationMs = durationMs
         )
