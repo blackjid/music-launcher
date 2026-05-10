@@ -25,6 +25,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,9 +36,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -85,6 +91,14 @@ fun NowPlayingScreen(
                 delay(1000)
                 displayPositionMs += 1000
             }
+        }
+    }
+
+    val albumScale = remember { Animatable(1f) }
+    LaunchedEffect(state.trackName) {
+        if (state.trackName.isNotEmpty()) {
+            albumScale.animateTo(1.06f, tween(300, easing = EaseOut))
+            albumScale.animateTo(1f, tween(500, easing = EaseIn))
         }
     }
 
@@ -189,24 +203,34 @@ fun NowPlayingScreen(
         ) {
             // Album art — provided directly as Bitmap by App Remote
             val albumArt = state.albumArt
-            if (albumArt != null) {
-                Image(
-                    bitmap = albumArt.asImageBitmap(),
-                    contentDescription = "Album art",
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(BgSecondary)
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(vertical = 24.dp)
+                    .aspectRatio(1f)
+                    .graphicsLayer {
+                        scaleX = albumScale.value
+                        scaleY = albumScale.value
+                    }
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = RoundedCornerShape(16.dp),
+                        clip = false,
+                        ambientColor = AccentPurple.copy(alpha = 0.6f),
+                        spotColor = AccentPurple.copy(alpha = 0.8f)
+                    )
+                    .clip(RoundedCornerShape(16.dp))
+            ) {
+                if (albumArt != null) {
+                    Image(
+                        bitmap = albumArt.asImageBitmap(),
+                        contentDescription = "Album art",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize().background(BgSecondary))
+                }
             }
 
             // Controls panel
