@@ -50,6 +50,16 @@ class PlaybackPoller(
         SpotifyWebApi.skipPrevious(token)
     }
 
+    suspend fun getAvailableDevices(profileId: String): List<SpotifyDevice> {
+        val token = profileRepository.getValidToken(profileId) ?: return emptyList()
+        return SpotifyWebApi.getAvailableDevices(token)
+    }
+
+    suspend fun transferPlayback(profileId: String, deviceId: String) {
+        val token = profileRepository.getValidToken(profileId) ?: return
+        SpotifyWebApi.transferPlayback(token, deviceId)
+    }
+
     private suspend fun pollAllAccounts() {
         val profiles = profileRepository.profiles.value
         if (profiles.isEmpty()) return

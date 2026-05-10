@@ -8,6 +8,14 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class SpotifyDevice(
+    val id: String,
+    val name: String,
+    val type: String,
+    val isActive: Boolean,
+    val volumePercent: Int
+)
+
 data class WebPlaybackState(
     val profileId: String,
     val profileName: String,
@@ -18,7 +26,9 @@ data class WebPlaybackState(
     val albumArtUrl: String? = null,
     val albumArtBitmap: Bitmap? = null,
     val isPlaying: Boolean,
-    val deviceName: String
+    val deviceName: String,
+    val positionMs: Long = 0,
+    val durationMs: Long = 0
 )
 
 object SpotifyWebApi {
@@ -52,6 +62,51 @@ object SpotifyWebApi {
             code in 200..204
         } catch (e: Exception) {
             Log.e(TAG, "Command $method $urlStr failed", e)
+            false
+        }
+    }
+
+    suspend fun getAvailableDevices(accessToken: String): List<SpotifyDevice> = withContext(Dispatchers.IO) {
+        try {
+            val conn = URL("https://api.spotify.com/v1/me/player/devices").openConnection() as HttpURLConnection
+            conn.setRequestProperty("Authorization", "Bearer $accessToken")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode != 200) return@withContext emptyList()
+            val obj = JSONObject(conn.inputStream.bufferedReader().readText())
+            val devices = obj.optJSONArray("devices") ?: return@withContext emptyList()
+            buildList {
+                for (i in 0 until devices.length()) {
+                    val d = devices.getJSONObject(i)
+                    add(SpotifyDevice(
+                        id = d.getString("id"),
+                        name = d.getString("name"),
+                        type = d.optString("type", "Unknown"),
+                        isActive = d.optBoolean("is_active", false),
+                        volumePercent = d.optInt("volume_percent", 0)
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching devices", e)
+            emptyList()
+        }
+    }
+
+    suspend fun transferPlayback(accessToken: String, deviceId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val conn = URL("https://api.spotify.com/v1/me/player").openConnection() as HttpURLConnection
+            conn.requestMethod = "PUT"
+            conn.setRequestProperty("Authorization", "Bearer $accessToken")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.doOutput = true
+            val body = """{"device_ids":["$deviceId"],"play":true}"""
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            conn.responseCode in 200..204
+        } catch (e: Exception) {
+            Log.e(TAG, "Error transferring playback", e)
             false
         }
     }
@@ -116,6 +171,8 @@ object SpotifyWebApi {
 
         val device = obj.optJSONObject("device")
         val deviceName = device?.optString("name", "") ?: ""
+        val positionMs = obj.optLong("progress_ms", 0)
+        val durationMs = item.optLong("duration_ms", 0)
 
         return WebPlaybackState(
             profileId = profileId,
@@ -126,7 +183,9 @@ object SpotifyWebApi {
             albumName = album?.optString("name", "") ?: "",
             albumArtUrl = albumArtUrl,
             isPlaying = isPlaying,
-            deviceName = deviceName
+            deviceName = deviceName,
+            positionMs = positionMs,
+            durationMs = durationMs
         )
     }
 }

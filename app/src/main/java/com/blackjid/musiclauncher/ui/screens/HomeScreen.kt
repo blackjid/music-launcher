@@ -21,15 +21,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,12 +40,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,12 +58,20 @@ import com.blackjid.musiclauncher.profile.Profile
 import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
 import com.blackjid.musiclauncher.spotify.WebPlaybackState
+import com.blackjid.musiclauncher.ui.theme.AccentPurple
+import com.blackjid.musiclauncher.ui.theme.ActiveRowBg
+import com.blackjid.musiclauncher.ui.theme.BgPrimary
+import com.blackjid.musiclauncher.ui.theme.BgSecondary
+import com.blackjid.musiclauncher.ui.theme.BgTertiary
+import com.blackjid.musiclauncher.ui.theme.FgMuted
+import com.blackjid.musiclauncher.ui.theme.FgPrimary
+import com.blackjid.musiclauncher.ui.theme.FgSecondary
 import com.blackjid.musiclauncher.ui.theme.SpotifyGreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -69,6 +79,7 @@ import kotlin.random.Random
 
 private const val SPOTIFY_PACKAGE = "com.spotify.music"
 private val ClockFormatter = DateTimeFormatter.ofPattern("HH:mm")
+private val DateFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d")
 private const val BURN_IN_SHIFT_INTERVAL_MS = 45_000L
 private const val BURN_IN_MAX_OFFSET_DP = 8f
 
@@ -77,14 +88,15 @@ fun HomeScreen(
     profileRepository: ProfileRepository,
     playbackPoller: PlaybackPoller,
     onConnectSpotify: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToNowPlaying: (String) -> Unit
 ) {
     val context = LocalContext.current
     val profiles by profileRepository.profiles.collectAsState()
     val allPlayback by playbackPoller.allPlaybackStates.collectAsState()
 
-    // Clock — updates at the next minute boundary
     var clockText by remember { mutableStateOf(LocalTime.now().format(ClockFormatter)) }
+    var dateText by remember { mutableStateOf(LocalDate.now().format(DateFormatter)) }
     LaunchedEffect(Unit) {
         while (true) {
             val now = LocalTime.now()
@@ -94,10 +106,10 @@ fun HomeScreen(
             )
             delay(msUntilNext)
             clockText = LocalTime.now().format(ClockFormatter)
+            dateText = LocalDate.now().format(DateFormatter)
         }
     }
 
-    // OLED burn-in prevention
     val offsetX = remember { Animatable(0f) }
     val offsetY = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -113,98 +125,89 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(BgPrimary)
     ) {
         if (profiles.isEmpty()) {
-            // First-run: no accounts yet
             ConnectSpotifyContent(
                 onConnectSpotify = onConnectSpotify,
                 offsetX = offsetX.value,
                 offsetY = offsetY.value
             )
         } else {
-            val pagerState = rememberPagerState(pageCount = { profiles.size })
-            val scope = rememberCoroutineScope()
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .offset(x = offsetX.value.dp, y = offsetY.value.dp)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 32.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Top bar: Spotify icon | Clock | Settings icon
+                // Top bar: clock (left) + date + settings (right)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = {
-                        context.packageManager.getLaunchIntentForPackage(SPOTIFY_PACKAGE)
-                            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            ?.let { context.startActivity(it) }
-                    }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_spotify),
-                            contentDescription = "Open Spotify",
-                            tint = SpotifyGreen,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
                     Text(
                         text = clockText,
-                        fontSize = 64.sp,
-                        fontWeight = FontWeight.Thin,
-                        color = Color.White,
-                        letterSpacing = 2.sp
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = FgPrimary,
+                        letterSpacing = (-2).sp
                     )
-
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_settings),
-                            contentDescription = "Settings",
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                // Profile pills — tap to jump to that profile's page
-                if (profiles.size > 1) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        profiles.forEachIndexed { index, profile ->
-                            val isSelected = pagerState.currentPage == index
-                            val isPlaying = allPlayback.any { it.profileId == profile.id && it.isPlaying }
-                            ProfilePill(
-                                profile = profile,
-                                isSelected = isSelected,
-                                isPlaying = isPlaying,
-                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } }
+                        Text(
+                            text = dateText,
+                            fontSize = 14.sp,
+                            color = FgMuted
+                        )
+                        IconButton(
+                            onClick = {
+                                context.packageManager.getLaunchIntentForPackage(SPOTIFY_PACKAGE)
+                                    ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    ?.let { context.startActivity(it) }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_spotify),
+                                contentDescription = "Open Spotify",
+                                tint = SpotifyGreen,
+                                modifier = Modifier.size(20.dp)
                             )
-                            if (index < profiles.lastIndex) Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        IconButton(
+                            onClick = onNavigateToSettings,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_settings),
+                                contentDescription = "Settings",
+                                tint = FgMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Swipeable now-playing pages
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f)
-                ) { page ->
-                    val profile = profiles[page]
-                    val playback = allPlayback.find { it.profileId == profile.id }
-                    ProfileNowPlayingPage(
-                        profile = profile,
-                        playback = playback,
-                        poller = playbackPoller
-                    )
+                // Profile rows
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    profiles.forEach { profile ->
+                        val playback = allPlayback.find { it.profileId == profile.id }
+                        ProfileRow(
+                            profile = profile,
+                            playback = playback,
+                            onClick = { onNavigateToNowPlaying(profile.id) }
+                        )
+                    }
                 }
             }
         }
@@ -241,75 +244,25 @@ private fun ConnectSpotifyContent(
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Music Launcher",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color.White.copy(alpha = 0.4f)
+            fontSize = 14.sp,
+            color = FgMuted
         )
     }
 }
 
 @Composable
-private fun ProfilePill(
-    profile: Profile,
-    isSelected: Boolean,
-    isPlaying: Boolean,
-    onClick: () -> Unit
-) {
-    val bgColor = if (isSelected) Color(profile.avatarColor) else Color(profile.avatarColor).copy(alpha = 0.25f)
-    val textColor = if (isSelected) Color.Black else Color(profile.avatarColor)
-
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(bgColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        if (isPlaying) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(if (isSelected) Color.Black.copy(alpha = 0.5f) else Color(profile.avatarColor))
-            )
-        }
-        Text(
-            text = profile.name.split(" ").first(),
-            fontSize = 13.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = textColor
-        )
-    }
-}
-
-@Composable
-private fun ProfileNowPlayingPage(
+private fun ProfileRow(
     profile: Profile,
     playback: WebPlaybackState?,
-    poller: PlaybackPoller
+    onClick: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
+    val isPlaying = playback?.isPlaying == true
+    val rowBg = if (isPlaying) ActiveRowBg else BgSecondary
+    val rowAlpha = if (isPlaying || playback?.isPlaying == false) 1f else 0.5f
 
-    if (playback == null) {
-        // Profile is not playing anything
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Not playing",
-                fontSize = 18.sp,
-                color = Color.White.copy(alpha = 0.3f)
-            )
-        }
-        return
-    }
-
-    // Load album art
-    var albumArt by remember(playback.albumArtUrl) { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(playback.albumArtUrl) {
-        albumArt = playback.albumArtUrl?.let { url ->
+    var albumArt by remember(playback?.albumArtUrl) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(playback?.albumArtUrl) {
+        albumArt = playback?.albumArtUrl?.let { url ->
             withContext(Dispatchers.IO) {
                 try {
                     val conn = URL(url).openConnection()
@@ -323,105 +276,125 @@ private fun ProfileNowPlayingPage(
 
     Row(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 8.dp),
+            .fillMaxWidth()
+            .alpha(rowAlpha)
+            .clip(RoundedCornerShape(16.dp))
+            .background(rowBg)
+            .clickable(enabled = playback != null, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Album art
+        // Album art thumbnail
         if (albumArt != null) {
             Image(
                 bitmap = albumArt!!.asImageBitmap(),
                 contentDescription = "Album art",
                 modifier = Modifier
-                    .fillMaxHeight(0.85f)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Fit
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(14.dp)),
+                contentScale = ContentScale.Crop
             )
         } else {
             Box(
                 modifier = Modifier
-                    .size(120.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(profile.avatarColor).copy(alpha = 0.25f))
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(profile.avatarColor).copy(alpha = 0.4f))
             )
         }
 
-        // Track info + controls
+        // Track info (middle)
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(Color(profile.avatarColor))
+                )
+                Text(
+                    text = profile.name.split(" ").first(),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(profile.avatarColor)
+                )
+            }
             Text(
-                text = playback.trackName,
-                fontSize = 20.sp,
+                text = playback?.trackName ?: "Not playing",
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = playback.artistName,
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.6f),
+                color = if (playback != null) FgPrimary else FgMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (playback.deviceName.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = playback.deviceName,
-                    fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.3f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = playback?.artistName ?: "",
+                fontSize = 12.sp,
+                color = FgSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Playback controls
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+        // Right side: device, time/status, progress bar
+        if (playback != null) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                IconButton(
-                    onClick = { scope.launch { poller.skipPrevious(profile.id) } },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_previous),
-                        contentDescription = "Previous",
-                        tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.size(22.dp)
+                if (playback.deviceName.isNotEmpty()) {
+                    Text(
+                        text = playback.deviceName,
+                        fontSize = 10.sp,
+                        color = FgMuted
                     )
                 }
-                IconButton(
-                    onClick = { scope.launch { poller.togglePlayPause(profile.id, playback.isPlaying) } },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(
-                            if (playback.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                        ),
-                        contentDescription = if (playback.isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                if (!isPlaying) {
+                    Text(
+                        text = "Paused",
+                        fontSize = 11.sp,
+                        fontStyle = FontStyle.Italic,
+                        color = FgMuted
                     )
-                }
-                IconButton(
-                    onClick = { scope.launch { poller.skipNext(profile.id) } },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_next),
-                        contentDescription = "Next",
-                        tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.size(22.dp)
+                } else if (playback.durationMs > 0) {
+                    Text(
+                        text = "${formatMs(playback.positionMs)} / ${formatMs(playback.durationMs)}",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = FgMuted
                     )
+                    Box(
+                        modifier = Modifier
+                            .width(96.dp)
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(BgTertiary)
+                    ) {
+                        val progress = (playback.positionMs.toFloat() / playback.durationMs.toFloat())
+                            .coerceIn(0f, 1f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress)
+                                .fillMaxHeight()
+                                .background(Color(profile.avatarColor))
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+private fun formatMs(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
 }
