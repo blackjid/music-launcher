@@ -198,29 +198,57 @@ fun NowPlayingScreen(
         ) {
             Spacer(modifier = Modifier.size(36.dp))
 
-            Text(
-                text = "Now Playing",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = FgMuted
-            )
-
-            if (isOnPhoneSpeaker) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFD97706))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "Play on a speaker",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Now Playing",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = FgMuted
+                )
+                if (isOnPhoneSpeaker) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFD97706))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Play on a speaker",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    }
                 }
-            } else {
-                Spacer(modifier = Modifier.size(36.dp))
+            }
+
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(9999.dp))
+                    .background(BgSecondary)
+                    .clickable {
+                        context.packageManager
+                            .getLaunchIntentForPackage(SPOTIFY_PACKAGE)
+                            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            ?.let { context.startActivity(it) }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_spotify),
+                    contentDescription = "Open Spotify",
+                    tint = SpotifyGreen,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = "Spotify",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = FgSecondary
+                )
             }
         }
 
