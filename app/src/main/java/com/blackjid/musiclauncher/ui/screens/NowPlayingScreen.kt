@@ -1,6 +1,7 @@
 package com.blackjid.musiclauncher.ui.screens
 
 import android.content.Intent
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseIn
@@ -50,6 +51,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -98,6 +101,8 @@ fun NowPlayingScreen(
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val scope = rememberCoroutineScope()
     val hasTrack = state.trackName.isNotEmpty()
+    val albumArt = state.albumArt
+    val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     LaunchedEffect(Unit) { spotifyManager.connect() }
 
@@ -171,7 +176,22 @@ fun NowPlayingScreen(
                 }
             }
     ) {
-        Box(Modifier.fillMaxSize().background(BgPrimary))
+        // Layer 1: blurred album art background
+        if (albumArt != null && canBlur) {
+            Image(
+                bitmap = albumArt.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(32.dp, 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            )
+        } else {
+            Box(Modifier.fillMaxSize().background(BgPrimary))
+        }
+
+        // Layer 2: dark scrim
+        Box(Modifier.fillMaxSize().background(Color(0x99000000)))
 
         Column(modifier = Modifier.fillMaxSize()) {
         // Top bar
@@ -238,7 +258,6 @@ fun NowPlayingScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(44.dp)
         ) {
-            val albumArt = state.albumArt
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
