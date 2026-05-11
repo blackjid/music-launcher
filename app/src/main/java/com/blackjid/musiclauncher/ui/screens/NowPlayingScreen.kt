@@ -120,6 +120,7 @@ fun NowPlayingScreen(
         }
     }
 
+
     var showSettingsButton by remember { mutableStateOf(false) }
     var settingsTapCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(settingsTapCount) {
