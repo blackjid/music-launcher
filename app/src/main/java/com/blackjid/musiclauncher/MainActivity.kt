@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             )
         }
+        (applicationContext as MusicLauncherApp).spotifyManager.connect()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

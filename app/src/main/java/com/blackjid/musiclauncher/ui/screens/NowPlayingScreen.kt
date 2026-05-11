@@ -107,13 +107,8 @@ fun NowPlayingScreen(
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    // Reconnect whenever the connection drops (e.g. Spotify killed)
-    LaunchedEffect(isConnected) {
-        if (!isConnected) {
-            delay(2000L)
-            spotifyManager.connect()
-        }
-    }
+    // Connect on first composition; reconnect on resume is handled by MainActivity.onResume
+    LaunchedEffect(Unit) { spotifyManager.connect() }
 
     var displayPositionMs by remember { mutableStateOf(0L) }
     LaunchedEffect(state.positionMs, state.isPlaying) {
