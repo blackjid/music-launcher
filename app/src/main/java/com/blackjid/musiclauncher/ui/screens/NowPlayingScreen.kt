@@ -184,34 +184,20 @@ fun NowPlayingScreen(
         ) {
             Spacer(modifier = Modifier.size(36.dp))
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Now Playing",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = FgMuted
-                )
-                if (isOnPhoneSpeaker) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFD97706))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "Play on a speaker",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
+            Text(
+                text = "Now Playing",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = FgMuted
+            )
 
+            val switchBg = if (isOnPhoneSpeaker) Color(0xFFD97706) else BgSecondary
+            val switchIconTint = if (isOnPhoneSpeaker) Color.White else FgMuted
+            val switchTextColor = if (isOnPhoneSpeaker) Color.White else FgSecondary
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(9999.dp))
-                    .background(BgSecondary)
+                    .background(switchBg)
                     .clickable {
                         devices = null
                         showDevicePicker = true
@@ -221,17 +207,25 @@ fun NowPlayingScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                if (isOnPhoneSpeaker) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    )
+                }
                 Icon(
                     painter = painterResource(R.drawable.ic_spotify),
                     contentDescription = null,
-                    tint = FgMuted,
+                    tint = switchIconTint,
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
                     text = "Switch device",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = FgSecondary
+                    color = switchTextColor
                 )
             }
         }
