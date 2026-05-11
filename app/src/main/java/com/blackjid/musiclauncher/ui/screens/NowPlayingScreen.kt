@@ -1,11 +1,17 @@
 package com.blackjid.musiclauncher.ui.screens
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,11 +41,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -115,6 +123,15 @@ fun NowPlayingScreen(
     var showDevicePicker by remember { mutableStateOf(false) }
     var devices by remember { mutableStateOf<List<SpotifyDevice>?>(null) }
 
+    var showSettingsButton by remember { mutableStateOf(false) }
+    var settingsTapCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(settingsTapCount) {
+        if (settingsTapCount > 0) {
+            delay(3000L)
+            showSettingsButton = false
+        }
+    }
+
     if (profileId == null) {
         Box(
             modifier = Modifier.fillMaxSize().background(BgPrimary),
@@ -144,11 +161,19 @@ fun NowPlayingScreen(
         return
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgPrimary)
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    showSettingsButton = true
+                    settingsTapCount++
+                }
+            }
     ) {
+        Box(Modifier.fillMaxSize().background(BgPrimary))
+
+        Column(modifier = Modifier.fillMaxSize()) {
         // Top bar
         Row(
             modifier = Modifier
@@ -157,20 +182,7 @@ fun NowPlayingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onNavigateToSettings,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(9999.dp))
-                    .background(BgSecondary)
-                    .size(36.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_settings),
-                    contentDescription = "Settings",
-                    tint = FgSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            Spacer(modifier = Modifier.size(36.dp))
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -396,7 +408,35 @@ fun NowPlayingScreen(
                 }
             }
         }
-    }
+        } // end Column
+
+        // Tap-to-reveal settings button
+        AnimatedVisibility(
+            visible = showSettingsButton,
+            modifier = Modifier.align(Alignment.BottomEnd),
+            enter = fadeIn(tween(200)) + scaleIn(tween(200), initialScale = 0.8f),
+            exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.8f)
+        ) {
+            IconButton(
+                onClick = {
+                    showSettingsButton = false
+                    onNavigateToSettings()
+                },
+                modifier = Modifier
+                    .padding(24.dp)
+                    .clip(RoundedCornerShape(9999.dp))
+                    .background(BgSecondary.copy(alpha = 0.9f))
+                    .size(48.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_settings),
+                    contentDescription = "Settings",
+                    tint = FgSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    } // end root Box
 
     if (showDevicePicker) {
         AlertDialog(
