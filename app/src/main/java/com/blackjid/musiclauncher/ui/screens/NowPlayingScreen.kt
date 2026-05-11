@@ -1,5 +1,10 @@
 package com.blackjid.musiclauncher.ui.screens
 
+import android.content.Intent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,16 +24,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.EaseIn
-import androidx.compose.animation.core.EaseOut
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,6 +47,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjid.musiclauncher.R
+import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
 import com.blackjid.musiclauncher.spotify.SpeakerMonitor
 import com.blackjid.musiclauncher.spotify.SpotifyDevice
@@ -63,26 +68,31 @@ import com.blackjid.musiclauncher.ui.theme.BgTertiary
 import com.blackjid.musiclauncher.ui.theme.FgMuted
 import com.blackjid.musiclauncher.ui.theme.FgPrimary
 import com.blackjid.musiclauncher.ui.theme.FgSecondary
+import com.blackjid.musiclauncher.ui.theme.SpotifyGreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private const val SPOTIFY_PACKAGE = "com.spotify.music"
+
 @Composable
 fun NowPlayingScreen(
-    profileId: String,
+    profileRepository: ProfileRepository,
     spotifyManager: SpotifyManager,
     speakerMonitor: SpeakerMonitor,
     playbackPoller: PlaybackPoller,
-    onBack: () -> Unit
+    onRequestSpotifyAuth: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
+    val profiles by profileRepository.profiles.collectAsState()
+    val profileId = profiles.firstOrNull()?.id
+
     val state by spotifyManager.playerState.collectAsState()
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val scope = rememberCoroutineScope()
     val hasTrack = state.trackName.isNotEmpty()
 
-    // Reconnect in case Spotify was restarted
     LaunchedEffect(Unit) { spotifyManager.connect() }
 
-    // Local 1s tick for smooth progress bar while playing
     var displayPositionMs by remember { mutableStateOf(0L) }
     LaunchedEffect(state.positionMs, state.isPlaying) {
         displayPositionMs = state.positionMs
@@ -105,6 +115,35 @@ fun NowPlayingScreen(
     var showDevicePicker by remember { mutableStateOf(false) }
     var devices by remember { mutableStateOf<List<SpotifyDevice>?>(null) }
 
+    if (profileId == null) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(BgPrimary),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Button(
+                    onClick = onRequestSpotifyAuth,
+                    modifier = Modifier.size(160.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen)
+                ) {
+                    Text(
+                        text = "Connect\nSpotify",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        lineHeight = 26.sp
+                    )
+                }
+                Text(text = "Music Launcher", fontSize = 14.sp, color = FgMuted)
+            }
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -118,26 +157,18 @@ fun NowPlayingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
+            IconButton(
+                onClick = onNavigateToSettings,
                 modifier = Modifier
                     .clip(RoundedCornerShape(9999.dp))
                     .background(BgSecondary)
-                    .clickable { onBack() }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .size(36.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_back),
-                    contentDescription = "Back",
+                    painter = painterResource(R.drawable.ic_settings),
+                    contentDescription = "Settings",
                     tint = FgSecondary,
                     modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "Standby",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = FgSecondary
                 )
             }
 
@@ -201,7 +232,6 @@ fun NowPlayingScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(44.dp)
         ) {
-            // Album art — provided directly as Bitmap by App Remote
             val albumArt = state.albumArt
             Box(
                 modifier = Modifier
@@ -233,7 +263,6 @@ fun NowPlayingScreen(
                 }
             }
 
-            // Controls panel
             if (hasTrack) {
                 Column(
                     modifier = Modifier
@@ -262,7 +291,6 @@ fun NowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Progress bar
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -301,7 +329,6 @@ fun NowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Playback controls — fire-and-forget via App Remote IPC
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
