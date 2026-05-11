@@ -7,20 +7,28 @@ import com.spotify.android.appremote.api.Connector
 import com.spotify.android.appremote.api.SpotifyAppRemote
 import com.spotify.protocol.types.ImageUri
 import com.spotify.protocol.types.PlayerState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class SpotifyManager(
     private val context: Context,
     val clientId: String
 ) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     companion object {
         private const val TAG = "SpotifyManager"
         const val REDIRECT_URI = "com.blackjid.musiclauncher://callback"
     }
 
     private var appRemote: SpotifyAppRemote? = null
+    private var monitorJob: Job? = null
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -50,11 +58,12 @@ class SpotifyManager(
                 _isConnected.value = true
                 _error.value = null
                 subscribeToPlayerState()
+                startConnectionMonitor()
             }
 
             override fun onFailure(error: Throwable) {
-                Log.e(TAG, "Connection failed", error)
-                _isConnected.value = false
+                Log.e(TAG, "Connection failed: ${error.javaClass.simpleName}")
+                clearState()
                 _error.value = error.message ?: "Connection failed"
             }
         })
@@ -93,13 +102,30 @@ class SpotifyManager(
     private fun subscribeToPlayerState() {
         appRemote?.playerApi?.subscribeToPlayerState()
             ?.setEventCallback { state -> updatePlayerState(state) }
-            ?.setErrorCallback {
-                Log.w(TAG, "Player state subscription lost (Spotify disconnected)")
-                appRemote = null
-                _isConnected.value = false
-                _playerState.value = MusicPlayerState()
-                lastImageUri = null
+            ?.setErrorCallback { err ->
+                Log.w(TAG, "subscribeToPlayerState error callback fired: $err")
+                clearState()
             }
+    }
+
+    private fun startConnectionMonitor() {
+        monitorJob?.cancel()
+        monitorJob = scope.launch {
+            while (true) {
+                delay(2000L)
+                if (appRemote != null && appRemote?.isConnected == false) {
+                    Log.w(TAG, "Connection monitor detected disconnect — clearing state")
+                    clearState()
+                }
+            }
+        }
+    }
+
+    private fun clearState() {
+        appRemote = null
+        _isConnected.value = false
+        _playerState.value = MusicPlayerState()
+        lastImageUri = null
     }
 
     private fun updatePlayerState(state: PlayerState) {
