@@ -3,6 +3,7 @@ package com.blackjid.musiclauncher.ui.screens
 import android.content.Intent
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
@@ -178,17 +179,19 @@ fun NowPlayingScreen(
             }
     ) {
         // Layer 1: blurred album art background
-        if (albumArt != null && canBlur) {
-            Image(
-                bitmap = albumArt.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(32.dp, 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-            )
-        } else {
-            Box(Modifier.fillMaxSize().background(BgPrimary))
+        Crossfade(targetState = albumArt, animationSpec = tween(700), label = "bg") { art ->
+            if (art != null && canBlur) {
+                Image(
+                    bitmap = art.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(32.dp, 32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                )
+            } else {
+                Box(Modifier.fillMaxSize().background(BgPrimary))
+            }
         }
 
         // Layer 2: dark scrim
@@ -277,15 +280,17 @@ fun NowPlayingScreen(
                     )
                     .clip(RoundedCornerShape(16.dp))
             ) {
-                if (albumArt != null) {
-                    Image(
-                        bitmap = albumArt.asImageBitmap(),
-                        contentDescription = "Album art",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize().background(BgSecondary))
+                Crossfade(targetState = albumArt, animationSpec = tween(500), label = "art") { art ->
+                    if (art != null) {
+                        Image(
+                            bitmap = art.asImageBitmap(),
+                            contentDescription = "Album art",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize().background(BgSecondary))
+                    }
                 }
             }
 
