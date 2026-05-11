@@ -187,76 +187,11 @@ fun NowPlayingScreen(
         // Layer 2: dark scrim
         Box(Modifier.fillMaxSize().background(Color(0x99000000)))
 
-        Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(modifier = Modifier.size(36.dp))
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Now Playing",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = FgMuted
-                )
-                if (isOnPhoneSpeaker) {
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFD97706))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "Play on a speaker",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(9999.dp))
-                    .background(BgSecondary)
-                    .clickable {
-                        context.packageManager
-                            .getLaunchIntentForPackage(SPOTIFY_PACKAGE)
-                            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            ?.let { context.startActivity(it) }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_spotify),
-                    contentDescription = "Open Spotify",
-                    tint = SpotifyGreen,
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    text = "Spotify",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = FgSecondary
-                )
-            }
-        }
-
-        // Content area
+        // Content area — full screen, album art vertically centered
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 40.dp, end = 40.dp, bottom = 24.dp),
+                .padding(horizontal = 40.dp, vertical = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(44.dp)
         ) {
@@ -493,7 +428,56 @@ fun NowPlayingScreen(
                 }
             }
         }
-        } // end Column
+
+        // Spotify button — top right
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+                .clip(RoundedCornerShape(9999.dp))
+                .background(BgSecondary.copy(alpha = 0.9f))
+                .clickable {
+                    context.packageManager
+                        .getLaunchIntentForPackage(SPOTIFY_PACKAGE)
+                        ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        ?.let { context.startActivity(it) }
+                }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_spotify),
+                contentDescription = "Open Spotify",
+                tint = SpotifyGreen,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = "Spotify",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = FgSecondary
+            )
+        }
+
+        // Speaker warning badge — top center
+        if (isOnPhoneSpeaker) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFFD97706))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "Play on a speaker",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+            }
+        }
 
         // Tap-to-reveal settings button
         AnimatedVisibility(
