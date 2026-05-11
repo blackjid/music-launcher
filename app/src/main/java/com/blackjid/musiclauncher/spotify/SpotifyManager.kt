@@ -99,6 +99,16 @@ class SpotifyManager(
         if (state.isPlaying) pause() else play()
     }
 
+    fun toggleShuffle() {
+        val shuffling = !_playerState.value.isShuffling
+        appRemote?.playerApi?.setShuffle(shuffling)
+    }
+
+    fun cycleRepeat() {
+        val next = (_playerState.value.repeatMode + 1) % 3
+        appRemote?.playerApi?.setRepeat(next)
+    }
+
     private fun subscribeToPlayerState() {
         appRemote?.playerApi?.subscribeToPlayerState()
             ?.setEventCallback { state -> updatePlayerState(state) }
@@ -143,7 +153,9 @@ class SpotifyManager(
             isPlaying = !state.isPaused,
             durationMs = track.duration,
             positionMs = state.playbackPosition,
-            isPodcast = track.isPodcast
+            isPodcast = track.isPodcast,
+            isShuffling = state.playbackOptions.isShuffling,
+            repeatMode = state.playbackOptions.repeatMode
         )
 
         // Load album art

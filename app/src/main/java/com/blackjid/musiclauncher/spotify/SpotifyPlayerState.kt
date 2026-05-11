@@ -10,5 +10,7 @@ data class MusicPlayerState(
     val isPlaying: Boolean = false,
     val durationMs: Long = 0,
     val positionMs: Long = 0,
-    val isPodcast: Boolean = false
+    val isPodcast: Boolean = false,
+    val isShuffling: Boolean = false,
+    val repeatMode: Int = 0  // 0=off, 1=context, 2=track
 )

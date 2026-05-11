@@ -364,6 +364,20 @@ fun NowPlayingScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
+                            onClick = { spotifyManager.toggleShuffle() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_shuffle),
+                                contentDescription = "Shuffle",
+                                tint = if (state.isShuffling) AccentPurple else FgMuted,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        IconButton(
                             onClick = { spotifyManager.skipPrevious() },
                             modifier = Modifier.size(60.dp)
                         ) {
@@ -375,7 +389,7 @@ fun NowPlayingScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(24.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
 
                         Box(
                             modifier = Modifier
@@ -395,7 +409,7 @@ fun NowPlayingScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(24.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
 
                         IconButton(
                             onClick = { spotifyManager.skipNext() },
@@ -406,6 +420,23 @@ fun NowPlayingScreen(
                                 contentDescription = "Next",
                                 tint = FgPrimary,
                                 modifier = Modifier.size(34.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        IconButton(
+                            onClick = { spotifyManager.cycleRepeat() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (state.repeatMode == 2) R.drawable.ic_repeat_one
+                                    else R.drawable.ic_repeat
+                                ),
+                                contentDescription = "Repeat",
+                                tint = if (state.repeatMode > 0) AccentPurple else FgMuted,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
