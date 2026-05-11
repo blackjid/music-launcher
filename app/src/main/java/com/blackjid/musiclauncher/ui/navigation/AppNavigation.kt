@@ -25,7 +25,6 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
                 profileRepository = app.profileRepository,
                 spotifyManager = app.spotifyManager,
                 speakerMonitor = app.speakerMonitor,
-                playbackPoller = app.playbackPoller,
                 onRequestSpotifyAuth = onRequestSpotifyAuth,
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) }
             )

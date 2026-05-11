@@ -31,14 +31,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,7 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -70,10 +66,8 @@ import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
 import com.blackjid.musiclauncher.spotify.SpeakerMonitor
-import com.blackjid.musiclauncher.spotify.SpotifyDevice
 import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
-import com.blackjid.musiclauncher.ui.theme.ActiveRowBg
 import com.blackjid.musiclauncher.ui.theme.BgPrimary
 import com.blackjid.musiclauncher.ui.theme.BgSecondary
 import com.blackjid.musiclauncher.ui.theme.BgTertiary
@@ -82,7 +76,6 @@ import com.blackjid.musiclauncher.ui.theme.FgPrimary
 import com.blackjid.musiclauncher.ui.theme.FgSecondary
 import com.blackjid.musiclauncher.ui.theme.SpotifyGreen
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private const val SPOTIFY_PACKAGE = "com.spotify.music"
 
@@ -91,7 +84,6 @@ fun NowPlayingScreen(
     profileRepository: ProfileRepository,
     spotifyManager: SpotifyManager,
     speakerMonitor: SpeakerMonitor,
-    playbackPoller: PlaybackPoller,
     onRequestSpotifyAuth: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
@@ -101,7 +93,6 @@ fun NowPlayingScreen(
     val state by spotifyManager.playerState.collectAsState()
     val isConnected by spotifyManager.isConnected.collectAsState()
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val hasTrack = isConnected && state.trackName.isNotEmpty()
     val albumArt = state.albumArt
@@ -128,9 +119,6 @@ fun NowPlayingScreen(
             albumScale.animateTo(1f, tween(500, easing = EaseIn))
         }
     }
-
-    var showDevicePicker by remember { mutableStateOf(false) }
-    var devices by remember { mutableStateOf<List<SpotifyDevice>?>(null) }
 
     var showSettingsButton by remember { mutableStateOf(false) }
     var settingsTapCount by remember { mutableIntStateOf(0) }
@@ -217,42 +205,22 @@ fun NowPlayingScreen(
                 color = FgMuted
             )
 
-            val switchBg = if (isOnPhoneSpeaker) Color(0xFFD97706) else BgSecondary
-            val switchIconTint = if (isOnPhoneSpeaker) Color.White else FgMuted
-            val switchTextColor = if (isOnPhoneSpeaker) Color.White else FgSecondary
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(9999.dp))
-                    .background(switchBg)
-                    .clickable {
-                        devices = null
-                        showDevicePicker = true
-                        scope.launch { devices = playbackPoller.getAvailableDevices(profileId) }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (isOnPhoneSpeaker) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
+            if (isOnPhoneSpeaker) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFD97706))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "Play on a speaker",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
                     )
                 }
-                Icon(
-                    painter = painterResource(R.drawable.ic_spotify),
-                    contentDescription = null,
-                    tint = switchIconTint,
-                    modifier = Modifier.size(12.dp)
-                )
-                Text(
-                    text = "Switch device",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = switchTextColor
-                )
+            } else {
+                Spacer(modifier = Modifier.size(36.dp))
             }
         }
 
@@ -496,81 +464,6 @@ fun NowPlayingScreen(
         }
     } // end root Box
 
-    if (showDevicePicker) {
-        AlertDialog(
-            onDismissRequest = { showDevicePicker = false },
-            containerColor = BgSecondary,
-            title = {
-                Text(
-                    text = "Play on device",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = FgPrimary
-                )
-            },
-            text = {
-                if (devices == null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = AccentPurple, modifier = Modifier.size(32.dp))
-                    }
-                } else if (devices!!.isEmpty()) {
-                    Text(text = "No devices found", color = FgMuted, fontSize = 14.sp)
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        devices!!.forEach { device ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (device.isActive) ActiveRowBg else BgTertiary)
-                                    .clickable {
-                                        showDevicePicker = false
-                                        scope.launch {
-                                            playbackPoller.transferPlayback(profileId, device.id)
-                                        }
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = device.name,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = if (device.isActive) FgPrimary else FgSecondary
-                                    )
-                                    Text(
-                                        text = device.type,
-                                        fontSize = 11.sp,
-                                        color = FgMuted
-                                    )
-                                }
-                                if (device.isActive) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(AccentPurple)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDevicePicker = false }) {
-                    Text(text = "Cancel", color = FgMuted)
-                }
-            }
-        )
-    }
 }
 
 private fun formatMs(ms: Long): String {
