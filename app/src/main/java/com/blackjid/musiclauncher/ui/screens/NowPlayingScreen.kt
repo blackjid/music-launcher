@@ -100,6 +100,7 @@ fun NowPlayingScreen(
     val state by spotifyManager.playerState.collectAsState()
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val hasTrack = state.trackName.isNotEmpty()
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -407,17 +408,54 @@ fun NowPlayingScreen(
                     }
                 }
             } else {
-                Box(
+                Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = "Not playing",
-                        fontSize = 18.sp,
+                        text = "Nothing playing",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FgPrimary,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Open Spotify to start listening",
+                        fontSize = 15.sp,
                         color = FgMuted
                     )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(9999.dp))
+                            .background(SpotifyGreen)
+                            .clickable {
+                                context.packageManager
+                                    .getLaunchIntentForPackage(SPOTIFY_PACKAGE)
+                                    ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    ?.let { context.startActivity(it) }
+                            }
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_spotify),
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Open Spotify",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+                    }
                 }
             }
         }
