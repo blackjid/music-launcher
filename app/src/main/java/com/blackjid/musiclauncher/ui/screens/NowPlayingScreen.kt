@@ -103,7 +103,7 @@ fun NowPlayingScreen(
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val hasTrack = state.trackName.isNotEmpty()
+    val hasTrack = isConnected && state.trackName.isNotEmpty()
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
