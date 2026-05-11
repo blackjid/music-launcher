@@ -91,9 +91,15 @@ class SpotifyManager(
     }
 
     private fun subscribeToPlayerState() {
-        appRemote?.playerApi?.subscribeToPlayerState()?.setEventCallback { state ->
-            updatePlayerState(state)
-        }
+        appRemote?.playerApi?.subscribeToPlayerState()
+            ?.setEventCallback { state -> updatePlayerState(state) }
+            ?.setErrorCallback {
+                Log.w(TAG, "Player state subscription lost (Spotify disconnected)")
+                appRemote = null
+                _isConnected.value = false
+                _playerState.value = MusicPlayerState()
+                lastImageUri = null
+            }
     }
 
     private fun updatePlayerState(state: PlayerState) {
