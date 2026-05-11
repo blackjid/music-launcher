@@ -99,6 +99,7 @@ fun NowPlayingScreen(
     val profileId = profiles.firstOrNull()?.id
 
     val state by spotifyManager.playerState.collectAsState()
+    val isConnected by spotifyManager.isConnected.collectAsState()
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -106,7 +107,13 @@ fun NowPlayingScreen(
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    LaunchedEffect(Unit) { spotifyManager.connect() }
+    // Reconnect whenever the connection drops (e.g. Spotify killed)
+    LaunchedEffect(isConnected) {
+        if (!isConnected) {
+            delay(2000L)
+            spotifyManager.connect()
+        }
+    }
 
     var displayPositionMs by remember { mutableStateOf(0L) }
     LaunchedEffect(state.positionMs, state.isPlaying) {
