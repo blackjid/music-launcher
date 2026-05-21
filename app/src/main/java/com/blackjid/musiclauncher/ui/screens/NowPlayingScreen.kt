@@ -384,7 +384,7 @@ fun NowPlayingScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = state.artistName,
-                        fontSize = 15.sp,
+                        fontSize = 20.sp,
                         color = FgSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
