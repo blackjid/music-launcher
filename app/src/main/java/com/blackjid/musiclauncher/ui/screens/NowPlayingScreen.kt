@@ -20,6 +20,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -78,8 +80,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -124,6 +128,7 @@ fun NowPlayingScreen(
     val isConnected by spotifyManager.isConnected.collectAsState()
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val context = LocalContext.current
+    val density = LocalDensity.current
     val hasTrack = isConnected && state.trackName.isNotEmpty()
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -140,6 +145,10 @@ fun NowPlayingScreen(
             }
         }
     }
+
+    var isScrubbing by remember { mutableStateOf(false) }
+    var scrubFraction by remember { mutableStateOf(0f) }
+    var barWidthPx by remember { mutableIntStateOf(0) }
 
     val albumScale = remember { Animatable(1f) }
     LaunchedEffect(state.trackName) {
@@ -433,39 +442,89 @@ fun NowPlayingScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Section 3: Playhead
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(BgTertiary)
-                    ) {
-                        val progress = if (state.durationMs > 0) {
-                            (displayPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
-                        } else 0f
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(progress)
-                                .fillMaxHeight()
-                                .background(AccentPurple)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(5.dp))
+                    val progress = if (state.durationMs > 0) {
+                        (displayPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+                    val displayFraction = if (isScrubbing) scrubFraction else progress
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = formatMs(displayPositionMs),
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = FgMuted
+                            text = formatMs(if (isScrubbing) (scrubFraction * state.durationMs).toLong() else displayPositionMs),
+                            fontSize = 13.sp,
+                            fontFamily = NunitoFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isScrubbing) AccentPurple else FgPrimary,
+                            style = TextStyle(fontFeatureSettings = "tnum")
                         )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(20.dp)
+                                .onSizeChanged { barWidthPx = it.width }
+                                .pointerInput(state.durationMs) {
+                                    awaitEachGesture {
+                                        val down = awaitPointerEvent().changes.firstOrNull() ?: return@awaitEachGesture
+                                        if (!down.pressed) return@awaitEachGesture
+                                        down.consume()
+                                        if (barWidthPx > 0) scrubFraction = (down.position.x / barWidthPx).coerceIn(0f, 1f)
+                                        isScrubbing = true
+                                        try {
+                                            while (true) {
+                                                val change = awaitPointerEvent().changes.firstOrNull() ?: break
+                                                change.consume()
+                                                if (barWidthPx > 0) scrubFraction = (change.position.x / barWidthPx).coerceIn(0f, 1f)
+                                                if (!change.pressed) break
+                                            }
+                                            if (state.durationMs > 0) {
+                                                val seekMs = (scrubFraction * state.durationMs).toLong()
+                                                spotifyManager.seekTo(seekMs)
+                                                displayPositionMs = seekMs
+                                            }
+                                        } finally {
+                                            isScrubbing = false
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (isScrubbing) 12.dp else 10.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(BgTertiary)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(displayFraction)
+                                        .fillMaxHeight()
+                                        .background(AccentPurple)
+                                )
+                            }
+                            if (isScrubbing && barWidthPx > 0) {
+                                val thumbCenterDp = with(density) { (scrubFraction * barWidthPx).toDp() }
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .offset(x = thumbCenterDp - 7.dp)
+                                        .size(14.dp)
+                                        .shadow(4.dp, CircleShape)
+                                        .clip(CircleShape)
+                                        .background(AccentPurple)
+                                )
+                            }
+                        }
                         Text(
                             text = formatMs(state.durationMs),
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = FgMuted
+                            fontSize = 13.sp,
+                            fontFamily = NunitoFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            color = FgPrimary,
+                            style = TextStyle(fontFeatureSettings = "tnum")
                         )
                     }
 

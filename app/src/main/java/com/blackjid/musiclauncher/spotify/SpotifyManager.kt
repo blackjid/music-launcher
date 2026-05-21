@@ -109,6 +109,10 @@ class SpotifyManager(
         appRemote?.playerApi?.setRepeat(next)
     }
 
+    fun seekTo(positionMs: Long) {
+        appRemote?.playerApi?.seekTo(positionMs)
+    }
+
     private fun subscribeToPlayerState() {
         appRemote?.playerApi?.subscribeToPlayerState()
             ?.setEventCallback { state -> updatePlayerState(state) }
