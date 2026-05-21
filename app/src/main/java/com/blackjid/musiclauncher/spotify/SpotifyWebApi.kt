@@ -51,6 +51,29 @@ object SpotifyWebApi {
         sendCommand("https://api.spotify.com/v1/me/player/previous", "POST", accessToken)
     }
 
+    suspend fun checkTrackSaved(accessToken: String, trackId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val conn = URL("https://api.spotify.com/v1/me/tracks/contains?ids=$trackId").openConnection() as HttpURLConnection
+            conn.setRequestProperty("Authorization", "Bearer $accessToken")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode != 200) return@withContext false
+            val body = conn.inputStream.bufferedReader().readText()
+            body.trim().removePrefix("[").removeSuffix("]").trim().toBoolean()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking track saved", e)
+            false
+        }
+    }
+
+    suspend fun saveTrack(accessToken: String, trackId: String): Boolean = withContext(Dispatchers.IO) {
+        sendCommand("https://api.spotify.com/v1/me/tracks?ids=$trackId", "PUT", accessToken)
+    }
+
+    suspend fun removeTrack(accessToken: String, trackId: String): Boolean = withContext(Dispatchers.IO) {
+        sendCommand("https://api.spotify.com/v1/me/tracks?ids=$trackId", "DELETE", accessToken)
+    }
+
     private fun sendCommand(urlStr: String, method: String, accessToken: String): Boolean {
         return try {
             val conn = URL(urlStr).openConnection() as HttpURLConnection

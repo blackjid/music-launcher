@@ -169,7 +169,14 @@ fun NowPlayingScreen(
 
     val lyricsEnabled = settingsStore.lyricsEnabled
     var isLyricsFullScreen by remember { mutableStateOf(false) }
-    var isFavorite by remember { mutableStateOf(false) }
+    var isSaved by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(state.trackUri) {
+        isSaved = false
+        val uri = state.trackUri.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        spotifyManager.getLibraryState(uri) { isSaved = it }
+    }
     var lyrics by remember { mutableStateOf<List<LyricLine>>(emptyList()) }
 
     LaunchedEffect(state.trackName, state.artistName) {
@@ -572,16 +579,18 @@ fun NowPlayingScreen(
                         Spacer(modifier = Modifier.width(24.dp))
 
                         IconButton(
-                            onClick = { isFavorite = !isFavorite },
+                            onClick = {
+                                val uri = state.trackUri.takeIf { it.isNotEmpty() } ?: return@IconButton
+                                isSaved = !isSaved
+                                if (isSaved) spotifyManager.addToLibrary(uri)
+                                else spotifyManager.removeFromLibrary(uri)
+                            },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                painter = painterResource(
-                                    if (isFavorite) R.drawable.ic_favorite
-                                    else R.drawable.ic_favorite_border
-                                ),
-                                contentDescription = "Favorite",
-                                tint = if (isFavorite) FgPrimary else FgMuted,
+                                painter = painterResource(R.drawable.ic_add),
+                                contentDescription = if (isSaved) "Remove from library" else "Add to library",
+                                tint = if (isSaved) FgPrimary else FgMuted,
                                 modifier = Modifier.size(24.dp)
                             )
                         }

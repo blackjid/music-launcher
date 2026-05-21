@@ -113,6 +113,20 @@ class SpotifyManager(
         appRemote?.playerApi?.seekTo(positionMs)
     }
 
+    fun getLibraryState(uri: String, onResult: (Boolean) -> Unit) {
+        appRemote?.userApi?.getLibraryState(uri)
+            ?.setResultCallback { state -> onResult(state.isAdded) }
+            ?.setErrorCallback { onResult(false) }
+    }
+
+    fun addToLibrary(uri: String) {
+        appRemote?.userApi?.addToLibrary(uri)
+    }
+
+    fun removeFromLibrary(uri: String) {
+        appRemote?.userApi?.removeFromLibrary(uri)
+    }
+
     private fun subscribeToPlayerState() {
         appRemote?.playerApi?.subscribeToPlayerState()
             ?.setEventCallback { state -> updatePlayerState(state) }
@@ -159,7 +173,8 @@ class SpotifyManager(
             positionMs = state.playbackPosition,
             isPodcast = track.isPodcast,
             isShuffling = state.playbackOptions.isShuffling,
-            repeatMode = state.playbackOptions.repeatMode
+            repeatMode = state.playbackOptions.repeatMode,
+            trackUri = track.uri ?: ""
         )
 
         // Load album art
