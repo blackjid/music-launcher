@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -789,8 +790,8 @@ private fun LyricsFullScreenOverlay(
                 .padding(horizontal = 48.dp)
                 .graphicsLayer { alpha = lyricsAlpha.value }
                 .nestedScroll(userScrollDetector),
-            contentPadding = PaddingValues(top = halfHeightDp - 45.dp, bottom = halfHeightDp + 45.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(top = halfHeightDp - 41.dp, bottom = halfHeightDp + 41.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Header: album art + track info, scrolls up with the lyrics
             item(key = "header") {
@@ -861,7 +862,7 @@ private fun LyricsFullScreenOverlay(
                 if (distance in -1..1) {
                     // Fixed height so wrapping never shifts the list
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(90.dp),
+                        modifier = Modifier.fillMaxWidth().height(82.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -873,6 +874,8 @@ private fun LyricsFullScreenOverlay(
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            lineHeight = 41.sp,
+                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
