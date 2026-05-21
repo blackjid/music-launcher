@@ -89,6 +89,7 @@ import com.blackjid.musiclauncher.ui.theme.BgTertiary
 import com.blackjid.musiclauncher.ui.theme.FgMuted
 import com.blackjid.musiclauncher.ui.theme.FgPrimary
 import com.blackjid.musiclauncher.ui.theme.FgSecondary
+import com.blackjid.musiclauncher.ui.theme.NunitoFontFamily
 import com.blackjid.musiclauncher.ui.theme.SpotifyGreen
 import kotlinx.coroutines.delay
 
@@ -304,17 +305,17 @@ fun NowPlayingScreen(
                         ) { idx ->
                             Text(
                                 text = lyrics[idx].text,
-                                fontSize = 13.sp,
+                                fontFamily = NunitoFontFamily,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = FgPrimary,
                                 maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center,
                                 style = TextStyle(
                                     shadow = Shadow(
                                         color = Color.Black,
                                         offset = Offset.Zero,
-                                        blurRadius = 12f
+                                        blurRadius = 24f
                                     )
                                 )
                             )
@@ -719,12 +720,13 @@ private fun LyricsFullScreenOverlay(
                 items(lyrics.size) { idx ->
                     val distance = idx - currentLineIndex
                     val (textSize, textColor, weight) = when {
-                        distance == 0 -> Triple(20.sp, FgPrimary, FontWeight.Bold)
-                        distance in -1..1 -> Triple(16.sp, FgSecondary, FontWeight.Normal)
-                        else -> Triple(14.sp, FgMuted, FontWeight.Normal)
+                        distance == 0 -> Triple(24.sp, FgPrimary, FontWeight.Bold)
+                        distance in -1..1 -> Triple(19.sp, FgSecondary, FontWeight.Normal)
+                        else -> Triple(16.sp, FgMuted, FontWeight.Normal)
                     }
                     Text(
                         text = lyrics[idx].text,
+                        fontFamily = NunitoFontFamily,
                         fontSize = textSize,
                         fontWeight = weight,
                         color = textColor,
