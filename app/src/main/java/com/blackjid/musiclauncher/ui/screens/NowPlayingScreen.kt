@@ -855,11 +855,11 @@ private fun LyricsFullScreenOverlay(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp)
+                .padding(horizontal = 72.dp)
                 .graphicsLayer { alpha = lyricsAlpha.value }
                 .nestedScroll(userScrollDetector),
-            contentPadding = PaddingValues(top = halfHeightDp - 41.dp, bottom = halfHeightDp + 41.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            contentPadding = PaddingValues(top = halfHeightDp - 36.dp, bottom = halfHeightDp + 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header: album art + track info, scrolls up with the lyrics
             item(key = "header") {
@@ -901,73 +901,51 @@ private fun LyricsFullScreenOverlay(
 
             items(lyrics.size) { idx ->
                 val distance = idx - currentLineIndex
-                val targetSize by animateFloatAsState(
+                val targetScale by animateFloatAsState(
                     targetValue = when {
-                        distance == 0 -> 30f
-                        distance in -1..1 -> 24f
-                        else -> 20f
+                        distance == 0 -> 1f
+                        distance in -1..1 -> 26f / 30f
+                        else -> 22f / 30f
                     },
                     animationSpec = tween(durationMillis = 400),
-                    label = "lyric-size"
+                    label = "lyric-scale"
                 )
                 val targetColor by animateColorAsState(
                     targetValue = when {
-                        distance == 0 -> FgPrimary
-                        distance in -1..1 -> FgSecondary
-                        else -> FgMuted
+                        distance == 0 -> Color.White
+                        distance in -1..1 -> Color.White.copy(alpha = 0.35f)
+                        else -> Color.White.copy(alpha = 0.22f)
                     },
                     animationSpec = tween(durationMillis = 400),
                     label = "lyric-color"
-                )
-                val targetWeight by animateFloatAsState(
-                    targetValue = when {
-                        distance == 0 -> FontWeight.Bold.weight.toFloat()
-                        else -> FontWeight.Normal.weight.toFloat()
-                    },
-                    animationSpec = tween(durationMillis = 400),
-                    label = "lyric-weight"
                 )
                 val onTapLine = {
                     onSeek(lyrics[idx].timestampMs)
                     autoScrollEnabled.value = true
                     coroutineScope.launch { listState.animateScrollToItem(idx + 1) }
                 }
-                if (distance in -1..1) {
-                    // Fixed height so wrapping never shifts the list
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(82.dp)
-                            .clickable { onTapLine() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = lyrics[idx].text,
-                            fontFamily = NunitoFontFamily,
-                            fontSize = targetSize.sp,
-                            fontWeight = FontWeight(targetWeight.toInt()),
-                            color = targetColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 41.sp,
-                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                } else {
-                    Text(
-                        text = lyrics[idx].text,
-                        fontFamily = NunitoFontFamily,
-                        fontSize = targetSize.sp,
-                        fontWeight = FontWeight(targetWeight.toInt()),
-                        color = targetColor,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onTapLine() }
-                    )
-                }
+                // All lines render at 30sp Bold so wrapping never shifts;
+                // graphicsLayer scales the rendered output only. Emphasis on
+                // the current line comes from scale and color.
+                Text(
+                    text = lyrics[idx].text,
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = targetColor,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 39.sp,
+                    style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            scaleX = targetScale
+                            scaleY = targetScale
+                        }
+                        .clickable { onTapLine() }
+                )
             }
         }
 
