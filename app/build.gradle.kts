@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
 
     // Spotify SDK
     implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))

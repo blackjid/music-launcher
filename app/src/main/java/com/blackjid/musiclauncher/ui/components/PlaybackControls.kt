@@ -3,15 +3,18 @@ package com.blackjid.musiclauncher.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.blackjid.musiclauncher.R
 
 @Composable
 fun PlaybackControls(
@@ -28,7 +31,7 @@ fun PlaybackControls(
     ) {
         IconButton(onClick = onPrevious, modifier = Modifier.size(64.dp)) {
             Icon(
-                painter = painterResource(R.drawable.ic_skip_previous),
+                imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Previous",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(48.dp)
@@ -37,9 +40,7 @@ fun PlaybackControls(
 
         IconButton(onClick = onPlayPause, modifier = Modifier.size(80.dp)) {
             Icon(
-                painter = painterResource(
-                    if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                ),
+                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(64.dp)
@@ -48,7 +49,7 @@ fun PlaybackControls(
 
         IconButton(onClick = onNext, modifier = Modifier.size(64.dp)) {
             Icon(
-                painter = painterResource(R.drawable.ic_skip_next),
+                imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Next",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(48.dp)

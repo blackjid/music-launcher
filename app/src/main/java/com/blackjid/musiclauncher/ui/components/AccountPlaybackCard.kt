@@ -34,12 +34,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
 import com.blackjid.musiclauncher.spotify.WebPlaybackState
 import kotlinx.coroutines.Dispatchers
@@ -134,7 +137,7 @@ fun AccountPlaybackCard(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_skip_previous),
+                        imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Previous",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
@@ -145,9 +148,7 @@ fun AccountPlaybackCard(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        painter = painterResource(
-                            if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                        ),
+                        imageVector = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (state.isPlaying) "Pause" else "Play",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)
@@ -158,7 +159,7 @@ fun AccountPlaybackCard(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_skip_next),
+                        imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)

@@ -22,6 +22,18 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddCircleOutline
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -409,13 +421,13 @@ fun NowPlayingScreen(
                     ) {
                         IconButton(
                             onClick = { spotifyManager.skipPrevious() },
-                            modifier = Modifier.size(60.dp)
+                            modifier = Modifier.size(68.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_skip_previous),
+                                imageVector = Icons.Rounded.SkipPrevious,
                                 contentDescription = "Previous",
                                 tint = FgPrimary,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(44.dp)
                             )
                         }
 
@@ -423,15 +435,13 @@ fun NowPlayingScreen(
 
                         IconButton(
                             onClick = { spotifyManager.togglePlayPause() },
-                            modifier = Modifier.size(72.dp)
+                            modifier = Modifier.size(84.dp)
                         ) {
                             Icon(
-                                painter = painterResource(
-                                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                                ),
+                                imageVector = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                 contentDescription = if (state.isPlaying) "Pause" else "Play",
                                 tint = FgPrimary,
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(56.dp)
                             )
                         }
 
@@ -439,13 +449,13 @@ fun NowPlayingScreen(
 
                         IconButton(
                             onClick = { spotifyManager.skipNext() },
-                            modifier = Modifier.size(60.dp)
+                            modifier = Modifier.size(68.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_skip_next),
+                                imageVector = Icons.Rounded.SkipNext,
                                 contentDescription = "Next",
                                 tint = FgPrimary,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(44.dp)
                             )
                         }
                     }
@@ -552,7 +562,7 @@ fun NowPlayingScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_shuffle),
+                                imageVector = Icons.Rounded.Shuffle,
                                 contentDescription = "Shuffle",
                                 tint = if (state.isShuffling) FgPrimary else FgMuted,
                                 modifier = Modifier.size(24.dp)
@@ -566,10 +576,7 @@ fun NowPlayingScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                painter = painterResource(
-                                    if (state.repeatMode == 2) R.drawable.ic_repeat_one
-                                    else R.drawable.ic_repeat
-                                ),
+                                imageVector = if (state.repeatMode == 2) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                                 contentDescription = "Repeat",
                                 tint = if (state.repeatMode > 0) FgPrimary else FgMuted,
                                 modifier = Modifier.size(24.dp)
@@ -588,7 +595,7 @@ fun NowPlayingScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_add),
+                                imageVector = if (isSaved) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
                                 contentDescription = if (isSaved) "Remove from library" else "Add to library",
                                 tint = if (isSaved) FgPrimary else FgMuted,
                                 modifier = Modifier.size(24.dp)
@@ -718,7 +725,7 @@ fun NowPlayingScreen(
                     .size(48.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_settings),
+                    imageVector = Icons.Rounded.Settings,
                     contentDescription = "Settings",
                     tint = FgSecondary,
                     modifier = Modifier.size(22.dp)
@@ -987,7 +994,7 @@ private fun LyricsFullScreenOverlay(
                 .background(BgSecondary.copy(alpha = 0.75f))
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_collapse),
+                imageVector = Icons.Rounded.FullscreenExit,
                 contentDescription = "Close lyrics",
                 tint = FgPrimary,
                 modifier = Modifier.size(20.dp)

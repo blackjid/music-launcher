@@ -20,10 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.spotify.MusicPlayerState
 
 @Composable
@@ -77,9 +78,7 @@ fun NowPlayingBar(
         // Play/Pause button
         IconButton(onClick = onPlayPause) {
             Icon(
-                painter = painterResource(
-                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                ),
+                imageVector = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (state.isPlaying) "Pause" else "Play",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(36.dp)
