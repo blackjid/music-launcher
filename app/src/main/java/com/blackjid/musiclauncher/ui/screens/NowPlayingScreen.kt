@@ -271,8 +271,8 @@ fun NowPlayingScreen(
                             elevation = 24.dp,
                             shape = RoundedCornerShape(16.dp),
                             clip = false,
-                            ambientColor = AccentPurple.copy(alpha = 0.6f),
-                            spotColor = AccentPurple.copy(alpha = 0.8f)
+                            ambientColor = Color.Black.copy(alpha = 0.6f),
+                            spotColor = Color.Black.copy(alpha = 0.8f)
                         )
                         .clip(RoundedCornerShape(16.dp))
                 ) {
@@ -377,7 +377,9 @@ fun NowPlayingScreen(
                         color = FgPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        letterSpacing = (-0.5).sp
+                        letterSpacing = (-0.5).sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -385,7 +387,9 @@ fun NowPlayingScreen(
                         fontSize = 15.sp,
                         color = FgSecondary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -398,28 +402,12 @@ fun NowPlayingScreen(
                     ) {
                         IconButton(
                             onClick = { spotifyManager.skipPrevious() },
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(60.dp)
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_skip_previous),
                                 contentDescription = "Previous",
                                 tint = FgPrimary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        IconButton(
-                            onClick = { spotifyManager.togglePlayPause() },
-                            modifier = Modifier.size(56.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(
-                                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                                ),
-                                contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                tint = AccentPurple,
                                 modifier = Modifier.size(36.dp)
                             )
                         }
@@ -427,14 +415,30 @@ fun NowPlayingScreen(
                         Spacer(modifier = Modifier.width(16.dp))
 
                         IconButton(
+                            onClick = { spotifyManager.togglePlayPause() },
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                                ),
+                                contentDescription = if (state.isPlaying) "Pause" else "Play",
+                                tint = FgPrimary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        IconButton(
                             onClick = { spotifyManager.skipNext() },
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(60.dp)
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_skip_next),
                                 contentDescription = "Next",
                                 tint = FgPrimary,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(36.dp)
                             )
                         }
                     }
@@ -457,7 +461,7 @@ fun NowPlayingScreen(
                             fontSize = 13.sp,
                             fontFamily = NunitoFontFamily,
                             fontWeight = FontWeight.Medium,
-                            color = if (isScrubbing) AccentPurple else FgPrimary,
+                            color = FgPrimary,
                             style = TextStyle(fontFeatureSettings = "tnum")
                         )
                         Box(
@@ -502,7 +506,7 @@ fun NowPlayingScreen(
                                     modifier = Modifier
                                         .fillMaxWidth(displayFraction)
                                         .fillMaxHeight()
-                                        .background(AccentPurple)
+                                        .background(FgPrimary)
                                 )
                             }
                             if (isScrubbing && barWidthPx > 0) {
@@ -514,7 +518,7 @@ fun NowPlayingScreen(
                                         .size(14.dp)
                                         .shadow(4.dp, CircleShape)
                                         .clip(CircleShape)
-                                        .background(AccentPurple)
+                                        .background(FgPrimary)
                                 )
                             }
                         }
@@ -538,13 +542,13 @@ fun NowPlayingScreen(
                     ) {
                         IconButton(
                             onClick = { spotifyManager.toggleShuffle() },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_shuffle),
                                 contentDescription = "Shuffle",
-                                tint = if (state.isShuffling) AccentPurple else FgMuted,
-                                modifier = Modifier.size(18.dp)
+                                tint = if (state.isShuffling) FgPrimary else FgMuted,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
@@ -552,7 +556,7 @@ fun NowPlayingScreen(
 
                         IconButton(
                             onClick = { spotifyManager.cycleRepeat() },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 painter = painterResource(
@@ -560,8 +564,8 @@ fun NowPlayingScreen(
                                     else R.drawable.ic_repeat
                                 ),
                                 contentDescription = "Repeat",
-                                tint = if (state.repeatMode > 0) AccentPurple else FgMuted,
-                                modifier = Modifier.size(18.dp)
+                                tint = if (state.repeatMode > 0) FgPrimary else FgMuted,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
@@ -569,7 +573,7 @@ fun NowPlayingScreen(
 
                         IconButton(
                             onClick = { isFavorite = !isFavorite },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 painter = painterResource(
@@ -577,8 +581,8 @@ fun NowPlayingScreen(
                                     else R.drawable.ic_favorite_border
                                 ),
                                 contentDescription = "Favorite",
-                                tint = if (isFavorite) AccentPurple else FgMuted,
-                                modifier = Modifier.size(18.dp)
+                                tint = if (isFavorite) FgPrimary else FgMuted,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -1014,7 +1018,7 @@ private fun LyricsFullScreenOverlay(
                 Icon(
                     painter = painterResource(R.drawable.ic_lyrics),
                     contentDescription = null,
-                    tint = AccentPurple,
+                    tint = FgPrimary,
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
