@@ -726,7 +726,11 @@ fun NowPlayingScreen(
                 canBlur = canBlur,
                 trackName = state.trackName,
                 artistName = state.artistName,
-                onCollapse = { isLyricsFullScreen = false }
+                onCollapse = { isLyricsFullScreen = false },
+                onSeek = { positionMs ->
+                    spotifyManager.seekTo(positionMs)
+                    displayPositionMs = positionMs
+                }
             )
         }
     }
@@ -740,7 +744,8 @@ private fun LyricsFullScreenOverlay(
     canBlur: Boolean,
     trackName: String,
     artistName: String,
-    onCollapse: () -> Unit
+    onCollapse: () -> Unit,
+    onSeek: (Long) -> Unit
 ) {
     val listState = rememberLazyListState()
     val lyricsAlpha = remember { Animatable(0f) }
@@ -922,10 +927,18 @@ private fun LyricsFullScreenOverlay(
                     animationSpec = tween(durationMillis = 400),
                     label = "lyric-weight"
                 )
+                val onTapLine = {
+                    onSeek(lyrics[idx].timestampMs)
+                    autoScrollEnabled.value = true
+                    coroutineScope.launch { listState.animateScrollToItem(idx + 1) }
+                }
                 if (distance in -1..1) {
                     // Fixed height so wrapping never shifts the list
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(82.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(82.dp)
+                            .clickable { onTapLine() },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -950,7 +963,9 @@ private fun LyricsFullScreenOverlay(
                         fontWeight = FontWeight(targetWeight.toInt()),
                         color = targetColor,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onTapLine() }
                     )
                 }
             }
