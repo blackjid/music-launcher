@@ -60,8 +60,12 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -141,7 +145,9 @@ fun NowPlayingScreen(
         }
     }
 
-    var lyricsMode by remember { mutableIntStateOf(settingsStore.lyricsMode) }
+    val lyricsEnabled = settingsStore.lyricsEnabled
+    var isLyricsFullScreen by remember { mutableStateOf(false) }
+    var isFavorite by remember { mutableStateOf(false) }
     var lyrics by remember { mutableStateOf<List<LyricLine>>(emptyList()) }
 
     LaunchedEffect(state.trackName, state.artistName) {
@@ -230,29 +236,106 @@ fun NowPlayingScreen(
                     .fillMaxHeight()
                     .padding(vertical = 24.dp)
                     .aspectRatio(1f)
-                    .graphicsLayer {
-                        scaleX = albumScale.value
-                        scaleY = albumScale.value
-                    }
-                    .shadow(
-                        elevation = 24.dp,
-                        shape = RoundedCornerShape(16.dp),
-                        clip = false,
-                        ambientColor = AccentPurple.copy(alpha = 0.6f),
-                        spotColor = AccentPurple.copy(alpha = 0.8f)
-                    )
-                    .clip(RoundedCornerShape(16.dp))
             ) {
-                Crossfade(targetState = albumArt, animationSpec = tween(500), label = "art") { art ->
-                    if (art != null) {
-                        Image(
-                            bitmap = art.asImageBitmap(),
-                            contentDescription = "Album art",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                // Album art — scaled, shadowed, clipped
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = albumScale.value
+                            scaleY = albumScale.value
+                        }
+                        .shadow(
+                            elevation = 24.dp,
+                            shape = RoundedCornerShape(16.dp),
+                            clip = false,
+                            ambientColor = AccentPurple.copy(alpha = 0.6f),
+                            spotColor = AccentPurple.copy(alpha = 0.8f)
                         )
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize().background(BgSecondary))
+                        .clip(RoundedCornerShape(16.dp))
+                ) {
+                    Crossfade(targetState = albumArt, animationSpec = tween(500), label = "art") { art ->
+                        if (art != null) {
+                            Image(
+                                bitmap = art.asImageBitmap(),
+                                contentDescription = "Album art",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize().background(BgSecondary))
+                        }
+                    }
+                }
+
+                // Lyrics overlay — outside the scale transform, clipped to cover shape
+                if (lyricsEnabled && lyrics.isNotEmpty() && currentLineIndex >= 0) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(16.dp))
+                    ) {
+                        // Gradient scrim at bottom for text legibility
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(110.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, Color(0xDD000000))
+                                    )
+                                )
+                        )
+                        // Current lyric line — sits above the icon button
+                        AnimatedContent(
+                            targetState = currentLineIndex,
+                            transitionSpec = {
+                                (fadeIn(tween(450, easing = EaseOut)) +
+                                    slideInVertically(tween(450, easing = EaseOut)) { it }) togetherWith
+                                (fadeOut(tween(300, easing = EaseIn)) +
+                                    slideOutVertically(tween(300, easing = EaseIn)) { -it })
+                            },
+                            label = "lyric-cover",
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(start = 14.dp, end = 14.dp, bottom = 52.dp)
+                        ) { idx ->
+                            Text(
+                                text = lyrics[idx].text,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = FgPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                                style = TextStyle(
+                                    shadow = Shadow(
+                                        color = Color.Black,
+                                        offset = Offset.Zero,
+                                        blurRadius = 12f
+                                    )
+                                )
+                            )
+                        }
+                        // Expand to full-screen button — bottom-right corner
+                        IconButton(
+                            onClick = { isLyricsFullScreen = true },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .clip(CircleShape)
+                                .background(BgSecondary.copy(alpha = 0.75f))
+                                .size(36.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_lyrics),
+                                contentDescription = "Full screen lyrics",
+                                tint = FgPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -264,32 +347,84 @@ fun NowPlayingScreen(
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.Center
                 ) {
+                    // Section 1: Info
                     Text(
                         text = state.trackName,
-                        fontSize = 34.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = FgPrimary,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        letterSpacing = (-0.5).sp,
-                        lineHeight = 38.sp
+                        letterSpacing = (-0.5).sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = state.artistName,
-                        fontSize = 17.sp,
+                        fontSize = 15.sp,
                         color = FgSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
+                    // Section 2: Main controls
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { spotifyManager.skipPrevious() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_skip_previous),
+                                contentDescription = "Previous",
+                                tint = FgPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        IconButton(
+                            onClick = { spotifyManager.togglePlayPause() },
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                                ),
+                                contentDescription = if (state.isPlaying) "Pause" else "Play",
+                                tint = AccentPurple,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        IconButton(
+                            onClick = { spotifyManager.skipNext() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_skip_next),
+                                contentDescription = "Next",
+                                tint = FgPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Section 3: Playhead
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(10.dp)
-                            .clip(RoundedCornerShape(5.dp))
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
                             .background(BgTertiary)
                     ) {
                         val progress = if (state.durationMs > 0) {
@@ -302,20 +437,20 @@ fun NowPlayingScreen(
                                 .background(AccentPurple)
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(5.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
                             text = formatMs(displayPositionMs),
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = FgMuted
                         )
                         Text(
                             text = formatMs(state.durationMs),
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = FgMuted
                         )
@@ -323,6 +458,7 @@ fun NowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Section 4: Extra controls
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
@@ -330,69 +466,21 @@ fun NowPlayingScreen(
                     ) {
                         IconButton(
                             onClick = { spotifyManager.toggleShuffle() },
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_shuffle),
                                 contentDescription = "Shuffle",
                                 tint = if (state.isShuffling) AccentPurple else FgMuted,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        IconButton(
-                            onClick = { spotifyManager.skipPrevious() },
-                            modifier = Modifier.size(60.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_skip_previous),
-                                contentDescription = "Previous",
-                                tint = FgPrimary,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .size(84.dp)
-                                .clip(CircleShape)
-                                .background(AccentPurple)
-                                .clickable { spotifyManager.togglePlayPause() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(
-                                    if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                                ),
-                                contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                tint = Color.White,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        IconButton(
-                            onClick = { spotifyManager.skipNext() },
-                            modifier = Modifier.size(60.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_skip_next),
-                                contentDescription = "Next",
-                                tint = FgPrimary,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(24.dp))
 
                         IconButton(
                             onClick = { spotifyManager.cycleRepeat() },
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                 painter = painterResource(
@@ -401,49 +489,24 @@ fun NowPlayingScreen(
                                 ),
                                 contentDescription = "Repeat",
                                 tint = if (state.repeatMode > 0) AccentPurple else FgMuted,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
-                        if (lyrics.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(24.dp))
 
-                            IconButton(
-                                onClick = {
-                                    lyricsMode = (lyricsMode + 1) % 3
-                                    settingsStore.lyricsMode = lyricsMode
-                                },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_lyrics),
-                                    contentDescription = "Lyrics",
-                                    tint = if (lyricsMode > 0) AccentPurple else FgMuted,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // Single-line lyrics
-                    if (lyricsMode == 1 && lyrics.isNotEmpty() && currentLineIndex >= 0) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        AnimatedContent(
-                            targetState = currentLineIndex,
-                            transitionSpec = {
-                                (fadeIn(tween(300)) + slideInVertically { it / 3 }) togetherWith
-                                    (fadeOut(tween(200)) + slideOutVertically { -it / 3 })
-                            },
-                            label = "lyric-line"
-                        ) { idx ->
-                            Text(
-                                text = lyrics[idx].text,
-                                fontSize = 15.sp,
-                                color = FgSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
+                        IconButton(
+                            onClick = { isFavorite = !isFavorite },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (isFavorite) R.drawable.ic_favorite
+                                    else R.drawable.ic_favorite_border
+                                ),
+                                contentDescription = "Favorite",
+                                tint = if (isFavorite) AccentPurple else FgMuted,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -579,22 +642,17 @@ fun NowPlayingScreen(
         }
 
         // Full-screen lyrics overlay
-        if (lyricsMode == 2 && lyrics.isNotEmpty()) {
+        if (isLyricsFullScreen && lyrics.isNotEmpty()) {
             LyricsFullScreenOverlay(
                 lyrics = lyrics,
                 currentLineIndex = currentLineIndex,
                 albumArt = albumArt,
                 canBlur = canBlur,
                 isPlaying = state.isPlaying,
-                repeatMode = state.repeatMode,
-                isShuffling = state.isShuffling,
                 onTogglePlayPause = { spotifyManager.togglePlayPause() },
                 onSkipPrevious = { spotifyManager.skipPrevious() },
                 onSkipNext = { spotifyManager.skipNext() },
-                onToggleLyrics = {
-                    lyricsMode = (lyricsMode + 1) % 3
-                    settingsStore.lyricsMode = lyricsMode
-                }
+                onCollapse = { isLyricsFullScreen = false }
             )
         }
     }
@@ -607,12 +665,10 @@ private fun LyricsFullScreenOverlay(
     albumArt: Bitmap?,
     canBlur: Boolean,
     isPlaying: Boolean,
-    repeatMode: Int,
-    isShuffling: Boolean,
     onTogglePlayPause: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSkipNext: () -> Unit,
-    onToggleLyrics: () -> Unit
+    onCollapse: () -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -729,13 +785,13 @@ private fun LyricsFullScreenOverlay(
                 Spacer(modifier = Modifier.width(24.dp))
 
                 IconButton(
-                    onClick = onToggleLyrics,
+                    onClick = onCollapse,
                     modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_lyrics),
-                        contentDescription = "Lyrics",
-                        tint = AccentPurple,
+                        painter = painterResource(R.drawable.ic_collapse),
+                        contentDescription = "Exit full screen",
+                        tint = FgMuted,
                         modifier = Modifier.size(20.dp)
                     )
                 }
