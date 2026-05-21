@@ -659,6 +659,8 @@ fun NowPlayingScreen(
                 currentLineIndex = currentLineIndex,
                 albumArt = albumArt,
                 canBlur = canBlur,
+                trackName = state.trackName,
+                artistName = state.artistName,
                 onCollapse = { isLyricsFullScreen = false }
             )
         }
@@ -671,6 +673,8 @@ private fun LyricsFullScreenOverlay(
     currentLineIndex: Int,
     albumArt: Bitmap?,
     canBlur: Boolean,
+    trackName: String,
+    artistName: String,
     onCollapse: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -702,18 +706,18 @@ private fun LyricsFullScreenOverlay(
                 when {
                     wasNull -> {
                         // First open: center on the current line, then fade in
-                        if (lineIdx >= 0) listState.scrollToItem(lineIdx)
+                        if (lineIdx >= 0) listState.scrollToItem(lineIdx + 1)
                         if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
                     }
                     lyricsChanged -> {
-                        // New song: re-enable autoscroll, fade out, scroll to top, fade in
+                        // New song: re-enable autoscroll, fade out, scroll to header, fade in
                         autoScrollEnabled.value = true
                         lyricsAlpha.animateTo(0f, tween(300))
                         listState.scrollToItem(0)
                         if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
                     }
                     lineIdx >= 0 && autoScrollEnabled.value -> {
-                        listState.animateScrollToItem(lineIdx)
+                        listState.animateScrollToItem(lineIdx + 1)
                     }
                 }
             }
@@ -751,9 +755,47 @@ private fun LyricsFullScreenOverlay(
                 .padding(horizontal = 48.dp)
                 .graphicsLayer { alpha = lyricsAlpha.value }
                 .nestedScroll(userScrollDetector),
-            contentPadding = PaddingValues(vertical = halfHeightDp),
+            contentPadding = PaddingValues(top = halfHeightDp - 45.dp, bottom = halfHeightDp + 45.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Header: album art + track info, scrolls up with the lyrics
+            item(key = "header") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (albumArt != null) {
+                        Image(
+                            bitmap = albumArt.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(88.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    }
+                    Text(
+                        text = trackName,
+                        fontFamily = NunitoFontFamily,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FgPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = artistName,
+                        fontFamily = NunitoFontFamily,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = FgSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
             items(lyrics.size) { idx ->
                 val distance = idx - currentLineIndex
                 val targetSize by animateFloatAsState(
@@ -866,7 +908,7 @@ private fun LyricsFullScreenOverlay(
                     .clickable {
                         autoScrollEnabled.value = true
                         coroutineScope.launch {
-                            listState.animateScrollToItem(lineIndexState.value)
+                            listState.animateScrollToItem(lineIndexState.value + 1)
                         }
                     }
                     .padding(horizontal = 14.dp, vertical = 9.dp),
