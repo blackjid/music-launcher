@@ -3,7 +3,9 @@ package com.blackjid.musiclauncher.ui.screens
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
@@ -51,7 +53,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
@@ -67,6 +76,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -649,10 +659,6 @@ fun NowPlayingScreen(
                 currentLineIndex = currentLineIndex,
                 albumArt = albumArt,
                 canBlur = canBlur,
-                isPlaying = state.isPlaying,
-                onTogglePlayPause = { spotifyManager.togglePlayPause() },
-                onSkipPrevious = { spotifyManager.skipPrevious() },
-                onSkipNext = { spotifyManager.skipNext() },
                 onCollapse = { isLyricsFullScreen = false }
             )
         }
@@ -665,22 +671,55 @@ private fun LyricsFullScreenOverlay(
     currentLineIndex: Int,
     albumArt: Bitmap?,
     canBlur: Boolean,
-    isPlaying: Boolean,
-    onTogglePlayPause: () -> Unit,
-    onSkipPrevious: () -> Unit,
-    onSkipNext: () -> Unit,
     onCollapse: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val lyricsAlpha = remember { Animatable(0f) }
+    val lyricsState = rememberUpdatedState(lyrics)
+    val lineIndexState = rememberUpdatedState(currentLineIndex)
+    val autoScrollEnabled = remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(currentLineIndex) {
-        if (currentLineIndex >= 0) {
-            listState.animateScrollToItem(
-                index = maxOf(0, currentLineIndex - 2),
-                scrollOffset = 0
-            )
+    val halfHeightDp = LocalConfiguration.current.screenHeightDp.dp / 2
+
+    // Pause autoscroll on any user drag
+    val userScrollDetector = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                if (source == NestedScrollSource.Drag) autoScrollEnabled.value = false
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
         }
     }
+
+    LaunchedEffect(Unit) {
+        var prevLyrics: List<LyricLine>? = null
+        snapshotFlow { lyricsState.value to lineIndexState.value }
+            .collect { (curLyrics, lineIdx) ->
+                val wasNull = prevLyrics == null
+                val lyricsChanged = !wasNull && curLyrics !== prevLyrics
+                prevLyrics = curLyrics
+                when {
+                    wasNull -> {
+                        // First open: center on the current line, then fade in
+                        if (lineIdx >= 0) listState.scrollToItem(lineIdx)
+                        if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
+                    }
+                    lyricsChanged -> {
+                        // New song: re-enable autoscroll, fade out, scroll to top, fade in
+                        autoScrollEnabled.value = true
+                        lyricsAlpha.animateTo(0f, tween(300))
+                        listState.scrollToItem(0)
+                        if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
+                    }
+                    lineIdx >= 0 && autoScrollEnabled.value -> {
+                        listState.animateScrollToItem(lineIdx)
+                    }
+                }
+            }
+    }
+
+    val fadeColor = Color(0xCC000000)
 
     Box(
         modifier = Modifier
@@ -702,101 +741,151 @@ private fun LyricsFullScreenOverlay(
         }
 
         // Darker scrim for readability
-        Box(Modifier.fillMaxSize().background(Color(0xCC000000)))
+        Box(Modifier.fillMaxSize().background(fadeColor))
 
-        Column(
+        // Lyrics list
+        LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 48.dp)
+                .graphicsLayer { alpha = lyricsAlpha.value }
+                .nestedScroll(userScrollDetector),
+            contentPadding = PaddingValues(vertical = halfHeightDp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Lyrics list
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(lyrics.size) { idx ->
-                    val distance = idx - currentLineIndex
-                    val (textSize, textColor, weight) = when {
-                        distance == 0 -> Triple(24.sp, FgPrimary, FontWeight.Bold)
-                        distance in -1..1 -> Triple(19.sp, FgSecondary, FontWeight.Normal)
-                        else -> Triple(16.sp, FgMuted, FontWeight.Normal)
+            items(lyrics.size) { idx ->
+                val distance = idx - currentLineIndex
+                val targetSize by animateFloatAsState(
+                    targetValue = when {
+                        distance == 0 -> 30f
+                        distance in -1..1 -> 24f
+                        else -> 20f
+                    },
+                    animationSpec = tween(durationMillis = 400),
+                    label = "lyric-size"
+                )
+                val targetColor by animateColorAsState(
+                    targetValue = when {
+                        distance == 0 -> FgPrimary
+                        distance in -1..1 -> FgSecondary
+                        else -> FgMuted
+                    },
+                    animationSpec = tween(durationMillis = 400),
+                    label = "lyric-color"
+                )
+                val targetWeight by animateFloatAsState(
+                    targetValue = when {
+                        distance == 0 -> FontWeight.Bold.weight.toFloat()
+                        else -> FontWeight.Normal.weight.toFloat()
+                    },
+                    animationSpec = tween(durationMillis = 400),
+                    label = "lyric-weight"
+                )
+                if (distance in -1..1) {
+                    // Fixed height so wrapping never shifts the list
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(90.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = lyrics[idx].text,
+                            fontFamily = NunitoFontFamily,
+                            fontSize = targetSize.sp,
+                            fontWeight = FontWeight(targetWeight.toInt()),
+                            color = targetColor,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
+                } else {
                     Text(
                         text = lyrics[idx].text,
                         fontFamily = NunitoFontFamily,
-                        fontSize = textSize,
-                        fontWeight = weight,
-                        color = textColor,
+                        fontSize = targetSize.sp,
+                        fontWeight = FontWeight(targetWeight.toInt()),
+                        color = targetColor,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
+        }
 
-            // Playback controls
+        // Top fade
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .align(Alignment.TopCenter)
+                .background(Brush.verticalGradient(listOf(fadeColor, Color.Transparent)))
+        )
+
+        // Bottom fade
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, fadeColor)))
+        )
+
+        // Close button — top-right, above the fade
+        IconButton(
+            onClick = onCollapse,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(BgSecondary.copy(alpha = 0.75f))
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_collapse),
+                contentDescription = "Close lyrics",
+                tint = FgPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // "Back to current line" button — appears below close when autoscroll is paused
+        AnimatedVisibility(
+            visible = !autoScrollEnabled.value,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it },
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 68.dp, end = 12.dp)
+        ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(BgSecondary.copy(alpha = 0.9f))
+                    .clickable {
+                        autoScrollEnabled.value = true
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(lineIndexState.value)
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                IconButton(onClick = onSkipPrevious, modifier = Modifier.size(52.dp)) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_previous),
-                        contentDescription = "Previous",
-                        tint = FgPrimary,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(AccentPurple)
-                        .clickable { onTogglePlayPause() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(
-                            if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                        ),
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                IconButton(onClick = onSkipNext, modifier = Modifier.size(52.dp)) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_next),
-                        contentDescription = "Next",
-                        tint = FgPrimary,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(24.dp))
-
-                IconButton(
-                    onClick = onCollapse,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_collapse),
-                        contentDescription = "Exit full screen",
-                        tint = FgMuted,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    painter = painterResource(R.drawable.ic_lyrics),
+                    contentDescription = null,
+                    tint = AccentPurple,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = "Back to current",
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = FgPrimary
+                )
             }
         }
     }
