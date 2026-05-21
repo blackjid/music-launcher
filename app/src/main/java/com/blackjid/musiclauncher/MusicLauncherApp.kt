@@ -2,6 +2,7 @@ package com.blackjid.musiclauncher
 
 import android.app.Application
 import android.content.Intent
+import com.blackjid.musiclauncher.data.LyricsRepository
 import com.blackjid.musiclauncher.data.SettingsStore
 import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.PlaybackPoller
@@ -32,6 +33,9 @@ class MusicLauncherApp : Application() {
     lateinit var speakerMonitor: SpeakerMonitor
         private set
 
+    lateinit var lyricsRepository: LyricsRepository
+        private set
+
     override fun onCreate() {
         super.onCreate()
         profileRepository = ProfileRepository(
@@ -46,6 +50,7 @@ class MusicLauncherApp : Application() {
         settingsStore = SettingsStore(this)
         speakerMonitor = SpeakerMonitor(this, spotifyManager, settingsStore, appScope)
         speakerMonitor.start()
+        lyricsRepository = LyricsRepository()
 
         appScope.launch {
             speakerMonitor.showWarning.collect { show ->

@@ -1,7 +1,9 @@
 package com.blackjid.musiclauncher.ui.screens
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
@@ -12,6 +14,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
@@ -19,6 +24,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -29,6 +35,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -59,12 +67,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjid.musiclauncher.R
+import com.blackjid.musiclauncher.data.LyricLine
+import com.blackjid.musiclauncher.data.LyricsRepository
+import com.blackjid.musiclauncher.data.SettingsStore
 import com.blackjid.musiclauncher.profile.ProfileRepository
-import com.blackjid.musiclauncher.spotify.PlaybackPoller
 import com.blackjid.musiclauncher.spotify.SpeakerMonitor
 import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
@@ -84,6 +95,8 @@ fun NowPlayingScreen(
     profileRepository: ProfileRepository,
     spotifyManager: SpotifyManager,
     speakerMonitor: SpeakerMonitor,
+    lyricsRepository: LyricsRepository,
+    settingsStore: SettingsStore,
     onRequestSpotifyAuth: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
@@ -98,7 +111,6 @@ fun NowPlayingScreen(
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    // Connect on first composition; reconnect on resume is handled by MainActivity.onResume
     LaunchedEffect(Unit) { spotifyManager.connect() }
 
     var displayPositionMs by remember { mutableStateOf(0L) }
@@ -120,7 +132,6 @@ fun NowPlayingScreen(
         }
     }
 
-
     var showSettingsButton by remember { mutableStateOf(false) }
     var settingsTapCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(settingsTapCount) {
@@ -129,6 +140,24 @@ fun NowPlayingScreen(
             showSettingsButton = false
         }
     }
+
+    var lyricsMode by remember { mutableIntStateOf(settingsStore.lyricsMode) }
+    var lyrics by remember { mutableStateOf<List<LyricLine>>(emptyList()) }
+
+    LaunchedEffect(state.trackName, state.artistName) {
+        lyrics = if (state.trackName.isNotEmpty()) {
+            lyricsRepository.getLyrics(
+                state.trackName,
+                state.artistName,
+                state.albumName,
+                state.durationMs / 1000
+            )
+        } else {
+            emptyList()
+        }
+    }
+
+    val currentLineIndex = lyrics.indexOfLast { it.timestampMs <= displayPositionMs }
 
     if (profileId == null) {
         Box(
@@ -375,6 +404,48 @@ fun NowPlayingScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                         }
+
+                        if (lyrics.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            IconButton(
+                                onClick = {
+                                    lyricsMode = (lyricsMode + 1) % 3
+                                    settingsStore.lyricsMode = lyricsMode
+                                },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_lyrics),
+                                    contentDescription = "Lyrics",
+                                    tint = if (lyricsMode > 0) AccentPurple else FgMuted,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Single-line lyrics
+                    if (lyricsMode == 1 && lyrics.isNotEmpty() && currentLineIndex >= 0) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        AnimatedContent(
+                            targetState = currentLineIndex,
+                            transitionSpec = {
+                                (fadeIn(tween(300)) + slideInVertically { it / 3 }) togetherWith
+                                    (fadeOut(tween(200)) + slideOutVertically { -it / 3 })
+                            },
+                            label = "lyric-line"
+                        ) { idx ->
+                            Text(
+                                text = lyrics[idx].text,
+                                fontSize = 15.sp,
+                                color = FgSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             } else {
@@ -506,8 +577,171 @@ fun NowPlayingScreen(
                 )
             }
         }
-    } // end root Box
 
+        // Full-screen lyrics overlay
+        if (lyricsMode == 2 && lyrics.isNotEmpty()) {
+            LyricsFullScreenOverlay(
+                lyrics = lyrics,
+                currentLineIndex = currentLineIndex,
+                albumArt = albumArt,
+                canBlur = canBlur,
+                isPlaying = state.isPlaying,
+                repeatMode = state.repeatMode,
+                isShuffling = state.isShuffling,
+                onTogglePlayPause = { spotifyManager.togglePlayPause() },
+                onSkipPrevious = { spotifyManager.skipPrevious() },
+                onSkipNext = { spotifyManager.skipNext() },
+                onToggleLyrics = {
+                    lyricsMode = (lyricsMode + 1) % 3
+                    settingsStore.lyricsMode = lyricsMode
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LyricsFullScreenOverlay(
+    lyrics: List<LyricLine>,
+    currentLineIndex: Int,
+    albumArt: Bitmap?,
+    canBlur: Boolean,
+    isPlaying: Boolean,
+    repeatMode: Int,
+    isShuffling: Boolean,
+    onTogglePlayPause: () -> Unit,
+    onSkipPrevious: () -> Unit,
+    onSkipNext: () -> Unit,
+    onToggleLyrics: () -> Unit
+) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(currentLineIndex) {
+        if (currentLineIndex >= 0) {
+            listState.animateScrollToItem(
+                index = maxOf(0, currentLineIndex - 2),
+                scrollOffset = 0
+            )
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) { detectTapGestures {} }
+    ) {
+        // Blurred background
+        if (albumArt != null && canBlur) {
+            Image(
+                bitmap = albumArt.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(48.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            )
+        } else {
+            Box(Modifier.fillMaxSize().background(BgPrimary))
+        }
+
+        // Darker scrim for readability
+        Box(Modifier.fillMaxSize().background(Color(0xCC000000)))
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 48.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Lyrics list
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(lyrics.size) { idx ->
+                    val distance = idx - currentLineIndex
+                    val (textSize, textColor, weight) = when {
+                        distance == 0 -> Triple(20.sp, FgPrimary, FontWeight.Bold)
+                        distance in -1..1 -> Triple(16.sp, FgSecondary, FontWeight.Normal)
+                        else -> Triple(14.sp, FgMuted, FontWeight.Normal)
+                    }
+                    Text(
+                        text = lyrics[idx].text,
+                        fontSize = textSize,
+                        fontWeight = weight,
+                        color = textColor,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Playback controls
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onSkipPrevious, modifier = Modifier.size(52.dp)) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_skip_previous),
+                        contentDescription = "Previous",
+                        tint = FgPrimary,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(AccentPurple)
+                        .clickable { onTogglePlayPause() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                        ),
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                IconButton(onClick = onSkipNext, modifier = Modifier.size(52.dp)) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_skip_next),
+                        contentDescription = "Next",
+                        tint = FgPrimary,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                IconButton(
+                    onClick = onToggleLyrics,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_lyrics),
+                        contentDescription = "Lyrics",
+                        tint = AccentPurple,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun formatMs(ms: Long): String {

@@ -8,4 +8,8 @@ class SettingsStore(context: Context) {
     var phoneSpeakerTimeoutMs: Long
         get() = prefs.getLong("phone_speaker_timeout_ms", 5 * 60_000L)
         set(value) { prefs.edit().putLong("phone_speaker_timeout_ms", value).apply() }
+
+    var lyricsMode: Int
+        get() = prefs.getInt("lyrics_mode", 1)
+        set(value) { prefs.edit().putInt("lyrics_mode", value).apply() }
 }
