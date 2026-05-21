@@ -60,6 +60,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -681,6 +682,7 @@ private fun LyricsFullScreenOverlay(
     val lyricsAlpha = remember { Animatable(0f) }
     val lyricsState = rememberUpdatedState(lyrics)
     val lineIndexState = rememberUpdatedState(currentLineIndex)
+    val trackNameState = rememberUpdatedState(trackName)
     val autoScrollEnabled = remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -697,30 +699,62 @@ private fun LyricsFullScreenOverlay(
     }
 
     LaunchedEffect(Unit) {
+        var isFirst = true
         var prevLyrics: List<LyricLine>? = null
-        snapshotFlow { lyricsState.value to lineIndexState.value }
-            .collect { (curLyrics, lineIdx) ->
-                val wasNull = prevLyrics == null
-                val lyricsChanged = !wasNull && curLyrics !== prevLyrics
-                prevLyrics = curLyrics
-                when {
-                    wasNull -> {
-                        // First open: center on the current line, then fade in
-                        if (lineIdx >= 0) listState.scrollToItem(lineIdx + 1)
-                        if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
-                    }
-                    lyricsChanged -> {
-                        // New song: re-enable autoscroll, fade out, scroll to header, fade in
-                        autoScrollEnabled.value = true
-                        lyricsAlpha.animateTo(0f, tween(300))
+        var prevTrackName = ""
+        var inTransition = false
+        var lineScrollJob: Job? = null
+
+        snapshotFlow {
+            Triple(lyricsState.value, lineIndexState.value, trackNameState.value)
+        }.collect { (curLyrics, lineIdx, curTrackName) ->
+            val first = isFirst
+            val trackChanged = !first && curTrackName != prevTrackName
+            val lyricsChanged = !first && curLyrics !== prevLyrics
+            isFirst = false
+            prevLyrics = curLyrics
+            prevTrackName = curTrackName
+
+            when {
+                first -> {
+                    if (lineIdx >= 0) listState.scrollToItem(lineIdx + 1)
+                    if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
+                }
+                trackChanged -> {
+                    // Track changed: fade out immediately so the old lyrics don't scroll
+                    // visibly while waiting for new lyrics to load
+                    inTransition = true
+                    lineScrollJob?.cancel()
+                    lineScrollJob?.join()
+                    autoScrollEnabled.value = true
+                    lyricsAlpha.animateTo(0f, tween(300))
+                    if (lyricsChanged) {
+                        // New lyrics already in this same emission — complete the transition
                         listState.scrollToItem(0)
                         if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
+                        inTransition = false
                     }
-                    lineIdx >= 0 && autoScrollEnabled.value -> {
+                }
+                lyricsChanged -> {
+                    // New lyrics arrived after the trackChanged fade-out
+                    lineScrollJob?.cancel()
+                    lineScrollJob?.join()
+                    if (lyricsAlpha.value > 0f) lyricsAlpha.animateTo(0f, tween(300))
+                    listState.scrollToItem(0)
+                    if (curLyrics.isNotEmpty()) lyricsAlpha.animateTo(1f, tween(400))
+                    inTransition = false
+                }
+                inTransition -> {
+                    // Faded out, waiting for new lyrics — ignore line index changes
+                }
+                lineIdx >= 0 && autoScrollEnabled.value -> {
+                    lineScrollJob?.cancel()
+                    lineScrollJob = coroutineScope.launch {
                         listState.animateScrollToItem(lineIdx + 1)
                     }
                 }
             }
+        }
     }
 
     val fadeColor = Color(0xCC000000)
