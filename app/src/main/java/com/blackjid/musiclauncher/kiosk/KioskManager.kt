@@ -13,6 +13,14 @@ class KioskManager(private val activity: ComponentActivity) {
         hideSystemBars()
     }
 
+    fun setKeepScreenOn(enabled: Boolean) {
+        if (enabled) {
+            activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)

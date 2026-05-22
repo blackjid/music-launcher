@@ -17,6 +17,7 @@ import com.blackjid.musiclauncher.ui.theme.MusicLauncherTheme
 import com.spotify.sdk.android.auth.AuthorizationClient
 import com.spotify.sdk.android.auth.AuthorizationRequest
 import com.spotify.sdk.android.auth.AuthorizationResponse
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -36,6 +37,18 @@ class MainActivity : ComponentActivity() {
 
         kioskManager = KioskManager(this)
         kioskManager.lockDown()
+
+        val app = applicationContext as MusicLauncherApp
+        lifecycleScope.launch {
+            app.spotifyManager.playerState.collect { state ->
+                if (state.isPlaying) {
+                    kioskManager.setKeepScreenOn(true)
+                } else {
+                    delay(60_000L)
+                    kioskManager.setKeepScreenOn(false)
+                }
+            }
+        }
 
         setContent {
             MusicLauncherTheme {
