@@ -2,6 +2,10 @@
 
 A single-purpose Android music kiosk app for a kid-friendly Spotify device. A OnePlus 6T sits on a landscape wireless charging dock; the app provides a full-screen Now Playing interface that controls Spotify (playing on home speakers via Spotify Connect).
 
+## Workflow
+
+- **Do not commit automatically** — always wait for explicit user instruction before running `git commit`. The user wants to test changes first and iterate before committing.
+
 ## Java / Build Environment
 
 Java comes from Android Studio's bundled JBR. A `.mise.toml` at the project root sets `JAVA_HOME` automatically when using [mise](https://mise.jdx.dev/). If mise is active, all gradle commands work as-is:
