@@ -150,8 +150,7 @@ class SpotifyManager(
     }
 
     fun toggleShuffle() {
-        val shuffling = !_playerState.value.isShuffling
-        appRemote?.playerApi?.setShuffle(shuffling)
+        appRemote?.playerApi?.setShuffle(!_playerState.value.isShuffling)
     }
 
     fun cycleRepeat() {

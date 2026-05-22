@@ -206,8 +206,8 @@ fun NowPlayingScreen(
         // Read state-derived values inside the lambda so the remembered
         // movableContent doesn't freeze a captured snapshot value.
         val currentAlbumArt = state.albumArt
-        val showLyricsOverlay = settingsStore.lyricsEnabled &&
-            lyrics.isNotEmpty() && currentLineIndex >= 0
+        val showLyricsOverlay = settingsStore.lyricsEnabled && lyrics.isNotEmpty()
+        val showCurrentLine = showLyricsOverlay && currentLineIndex >= 0
         Box(modifier = artMod) {
             Box(
                 modifier = Modifier
@@ -259,36 +259,38 @@ fun NowPlayingScreen(
                             )
                     )
                     // Current lyric line — sits above the icon button
-                    AnimatedContent(
-                        targetState = currentLineIndex,
-                        transitionSpec = {
-                            (fadeIn(tween(450, easing = EaseOut)) +
-                                slideInVertically(tween(450, easing = EaseOut)) { it }) togetherWith
-                            (fadeOut(tween(300, easing = EaseIn)) +
-                                slideOutVertically(tween(300, easing = EaseIn)) { -it })
-                        },
-                        label = "lyric-cover",
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(start = 14.dp, end = 14.dp, bottom = 52.dp)
-                    ) { idx ->
-                        Text(
-                            text = lyrics[idx].text,
-                            fontFamily = NunitoFontFamily,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = FgPrimary,
-                            maxLines = 2,
-                            textAlign = TextAlign.Center,
-                            style = TextStyle(
-                                shadow = Shadow(
-                                    color = Color.Black,
-                                    offset = Offset.Zero,
-                                    blurRadius = 24f
+                    if (showCurrentLine) {
+                        AnimatedContent(
+                            targetState = currentLineIndex,
+                            transitionSpec = {
+                                (fadeIn(tween(450, easing = EaseOut)) +
+                                    slideInVertically(tween(450, easing = EaseOut)) { it }) togetherWith
+                                (fadeOut(tween(300, easing = EaseIn)) +
+                                    slideOutVertically(tween(300, easing = EaseIn)) { -it })
+                            },
+                            label = "lyric-cover",
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(start = 14.dp, end = 14.dp, bottom = 52.dp)
+                        ) { idx ->
+                            Text(
+                                text = lyrics[idx].text,
+                                fontFamily = NunitoFontFamily,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = FgPrimary,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
+                                style = TextStyle(
+                                    shadow = Shadow(
+                                        color = Color.Black,
+                                        offset = Offset.Zero,
+                                        blurRadius = 24f
+                                    )
                                 )
                             )
-                        )
+                        }
                     }
                     // Expand to full-screen button — bottom-right corner
                     IconButton(
