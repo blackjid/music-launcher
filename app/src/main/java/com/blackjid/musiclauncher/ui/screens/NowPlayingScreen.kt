@@ -107,7 +107,6 @@ import com.blackjid.musiclauncher.R
 import com.blackjid.musiclauncher.data.LyricLine
 import com.blackjid.musiclauncher.data.LyricsRepository
 import com.blackjid.musiclauncher.data.SettingsStore
-import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.spotify.SpeakerMonitor
 import com.blackjid.musiclauncher.spotify.SpotifyManager
 import com.blackjid.musiclauncher.ui.theme.AccentPurple
@@ -125,17 +124,12 @@ private const val SPOTIFY_PACKAGE = "com.spotify.music"
 
 @Composable
 fun NowPlayingScreen(
-    profileRepository: ProfileRepository,
     spotifyManager: SpotifyManager,
     speakerMonitor: SpeakerMonitor,
     lyricsRepository: LyricsRepository,
     settingsStore: SettingsStore,
-    onRequestSpotifyAuth: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    val profiles by profileRepository.profiles.collectAsState()
-    val profileId = profiles.firstOrNull()?.id
-
     val state by spotifyManager.playerState.collectAsState()
     val isConnected by spotifyManager.isConnected.collectAsState()
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
@@ -205,35 +199,6 @@ fun NowPlayingScreen(
     }
 
     val currentLineIndex = lyrics.indexOfLast { it.timestampMs <= displayPositionMs }
-
-    if (profileId == null) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(BgPrimary),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Button(
-                    onClick = onRequestSpotifyAuth,
-                    modifier = Modifier.size(160.dp),
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen)
-                ) {
-                    Text(
-                        text = "Connect\nSpotify",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        lineHeight = 26.sp
-                    )
-                }
-                Text(text = "Music Launcher", fontSize = 14.sp, color = FgMuted)
-            }
-        }
-        return
-    }
 
     Box(
         modifier = Modifier

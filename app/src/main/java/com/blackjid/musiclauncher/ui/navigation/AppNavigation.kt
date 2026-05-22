@@ -22,12 +22,10 @@ fun AppNavigation(onRequestSpotifyAuth: () -> Unit = {}) {
     NavHost(navController = navController, startDestination = Routes.NOW_PLAYING) {
         composable(Routes.NOW_PLAYING) {
             NowPlayingScreen(
-                profileRepository = app.profileRepository,
                 spotifyManager = app.spotifyManager,
                 speakerMonitor = app.speakerMonitor,
                 lyricsRepository = app.lyricsRepository,
                 settingsStore = app.settingsStore,
-                onRequestSpotifyAuth = onRequestSpotifyAuth,
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
