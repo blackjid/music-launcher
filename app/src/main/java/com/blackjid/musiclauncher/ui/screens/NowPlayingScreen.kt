@@ -66,7 +66,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -138,7 +140,6 @@ fun NowPlayingScreen(
     val isOnPhoneSpeaker by speakerMonitor.isOnPhoneSpeaker.collectAsState()
     val context = LocalContext.current
     val density = LocalDensity.current
-    val hasTrack = isConnected && state.trackName.isNotEmpty()
     val albumArt = state.albumArt
     val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
@@ -176,7 +177,6 @@ fun NowPlayingScreen(
         }
     }
 
-    val lyricsEnabled = settingsStore.lyricsEnabled
     var isLyricsFullScreen by remember { mutableStateOf(false) }
     var isSaved by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -201,12 +201,22 @@ fun NowPlayingScreen(
         }
     }
 
-    val currentLineIndex = lyrics.indexOfLast { it.timestampMs <= displayPositionMs }
+    val currentLineIndex by remember {
+        derivedStateOf { lyrics.indexOfLast { it.timestampMs <= displayPositionMs } }
+    }
 
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
 
-    // Album art box — shared between portrait and landscape layouts
-    val albumArtBox: @Composable (Modifier) -> Unit = { artMod ->
+    // Album art box — shared between portrait and landscape layouts.
+    // Wrapped in movableContentOf so its identity is stable across recompositions,
+    // keeping the subtree skippable when its tracked state is unchanged.
+    val albumArtBox = remember {
+        movableContentOf<Modifier> { artMod ->
+        // Read state-derived values inside the lambda so the remembered
+        // movableContent doesn't freeze a captured snapshot value.
+        val currentAlbumArt = state.albumArt
+        val showLyricsOverlay = settingsStore.lyricsEnabled &&
+            lyrics.isNotEmpty() && currentLineIndex >= 0
         Box(modifier = artMod) {
             Box(
                 modifier = Modifier
@@ -224,7 +234,7 @@ fun NowPlayingScreen(
                     )
                     .clip(RoundedCornerShape(16.dp))
             ) {
-                Crossfade(targetState = albumArt, animationSpec = tween(500), label = "art") { art ->
+                Crossfade(targetState = currentAlbumArt, animationSpec = tween(500), label = "art") { art ->
                     if (art != null) {
                         Image(
                             bitmap = art.asImageBitmap(),
@@ -239,7 +249,7 @@ fun NowPlayingScreen(
             }
 
             // Lyrics overlay — outside the scale transform, clipped to cover shape
-            if (lyricsEnabled && lyrics.isNotEmpty() && currentLineIndex >= 0) {
+            if (showLyricsOverlay) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -309,11 +319,17 @@ fun NowPlayingScreen(
                 }
             }
         }
+        }
     }
 
-    // Controls section — shared between portrait and landscape layouts
-    val controlsSection: @Composable (Modifier) -> Unit = { ctrlMod ->
-        if (hasTrack) {
+    // Controls section — shared between portrait and landscape layouts.
+    // Wrapped in movableContentOf so its identity is stable across recompositions.
+    val controlsSection = remember {
+        movableContentOf<Modifier> { ctrlMod ->
+        // Recompute inside the lambda so the remembered movableContent
+        // sees the live value instead of a frozen capture.
+        val showTrack = isConnected && state.trackName.isNotEmpty()
+        if (showTrack) {
             Column(
                 modifier = ctrlMod,
                 verticalArrangement = Arrangement.Center,
@@ -578,6 +594,7 @@ fun NowPlayingScreen(
                     )
                 }
             }
+        }
         }
     }
 
