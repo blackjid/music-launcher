@@ -71,12 +71,143 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
     ) {
-        // Back button
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 80.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            item {
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    text = "Spotify Accounts",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            items(profiles) { profile ->
+                AccountRow(
+                    profile = profile,
+                    onRemove = { profileRepository.removeProfile(profile.id) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onAddAccount,
+                    colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add Spotify Account")
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = "Lyrics",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Show synced lyrics overlaid on the album cover",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_lyrics),
+                            contentDescription = null,
+                            tint = if (lyricsEnabled) SpotifyGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Show lyrics",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Switch(
+                        checked = lyricsEnabled,
+                        onCheckedChange = {
+                            lyricsEnabled = it
+                            settingsStore.lyricsEnabled = it
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = "Phone speaker timeout",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Pause and warn after this long on phone speakers",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TIMEOUT_OPTIONS.forEach { (ms, label) ->
+                        val selected = selectedTimeout == ms
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (selected) SpotifyGreen else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable {
+                                    selectedTimeout = ms
+                                    settingsStore.phoneSpeakerTimeoutMs = ms
+                                }
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 14.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Back button floats above the scroll content
         IconButton(
             onClick = onBack,
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -84,139 +215,6 @@ fun SettingsScreen(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(32.dp)
             )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 56.dp)
-        ) {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = "Spotify Accounts",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                items(profiles) { profile ->
-                    AccountRow(
-                        profile = profile,
-                        onRemove = { profileRepository.removeProfile(profile.id) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Lyrics",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Show synced lyrics overlaid on the album cover",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_lyrics),
-                        contentDescription = null,
-                        tint = if (lyricsEnabled) SpotifyGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Show lyrics",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Switch(
-                    checked = lyricsEnabled,
-                    onCheckedChange = {
-                        lyricsEnabled = it
-                        settingsStore.lyricsEnabled = it
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Phone speaker timeout",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Pause and warn after this long on phone speakers",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TIMEOUT_OPTIONS.forEach { (ms, label) ->
-                    val selected = selectedTimeout == ms
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (selected) SpotifyGreen else MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable {
-                                selectedTimeout = ms
-                                settingsStore.phoneSpeakerTimeoutMs = ms
-                            }
-                            .padding(horizontal = 20.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 14.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onAddAccount,
-                colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Add Spotify Account")
-            }
         }
     }
 }
