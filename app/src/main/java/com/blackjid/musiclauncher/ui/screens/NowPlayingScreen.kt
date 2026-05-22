@@ -780,7 +780,12 @@ private fun LyricsFullScreenOverlay(
     val autoScrollEnabled = remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
 
-    val halfHeightDp = LocalConfiguration.current.screenHeightDp.dp / 2
+    val configuration = LocalConfiguration.current
+    val halfHeightDp = configuration.screenHeightDp.dp / 2
+    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val lyricsFontSize = if (isPortrait) 22.sp else 30.sp
+    val lyricsLineHeight = if (isPortrait) 29.sp else 39.sp
+    val lyricsHorizontalPadding = if (isPortrait) 24.dp else 72.dp
 
     // Pause autoscroll on any user drag
     val userScrollDetector = remember {
@@ -880,7 +885,7 @@ private fun LyricsFullScreenOverlay(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 72.dp)
+                .padding(horizontal = lyricsHorizontalPadding)
                 .graphicsLayer { alpha = lyricsAlpha.value }
                 .nestedScroll(userScrollDetector),
             contentPadding = PaddingValues(top = halfHeightDp - 36.dp, bottom = halfHeightDp + 36.dp),
@@ -955,13 +960,13 @@ private fun LyricsFullScreenOverlay(
                 Text(
                     text = lyrics[idx].text,
                     fontFamily = NunitoFontFamily,
-                    fontSize = 30.sp,
+                    fontSize = lyricsFontSize,
                     fontWeight = FontWeight.Bold,
                     color = targetColor,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 39.sp,
+                    lineHeight = lyricsLineHeight,
                     style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
                     modifier = Modifier
                         .fillMaxWidth()
