@@ -1,6 +1,7 @@
 package com.blackjid.musiclauncher.spotify
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
@@ -15,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class SpotifyManager(
@@ -25,6 +27,7 @@ class SpotifyManager(
     companion object {
         private const val TAG = "SpotifyManager"
         const val REDIRECT_URI = "com.blackjid.musiclauncher://callback"
+        private const val TICK_MS = 100L
     }
 
     private var appRemote: SpotifyAppRemote? = null
@@ -38,6 +41,52 @@ class SpotifyManager(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private data class PositionAnchor(
+        val positionMs: Long,
+        val wallTimeMs: Long,
+        val isPlaying: Boolean
+    )
+
+    private val _positionAnchor = MutableStateFlow(
+        PositionAnchor(0L, SystemClock.elapsedRealtime(), false)
+    )
+
+    private val _livePositionMs = MutableStateFlow(0L)
+    val livePositionMs: StateFlow<Long> = _livePositionMs.asStateFlow()
+
+    init {
+        scope.launch {
+            _positionAnchor.collectLatest { anchor ->
+                if (anchor.isPlaying) {
+                    while (true) {
+                        emitLivePosition(anchor)
+                        delay(TICK_MS)
+                    }
+                } else {
+                    emitLivePosition(anchor)
+                }
+            }
+        }
+    }
+
+    private fun emitLivePosition(anchor: PositionAnchor) {
+        val raw = if (anchor.isPlaying) {
+            anchor.positionMs + (SystemClock.elapsedRealtime() - anchor.wallTimeMs)
+        } else {
+            anchor.positionMs
+        }
+        val dur = _playerState.value.durationMs
+        _livePositionMs.value = if (dur > 0) raw.coerceIn(0L, dur) else raw.coerceAtLeast(0L)
+    }
+
+    private fun updateAnchor(positionMs: Long, isPlaying: Boolean) {
+        _positionAnchor.value = PositionAnchor(
+            positionMs = positionMs,
+            wallTimeMs = SystemClock.elapsedRealtime(),
+            isPlaying = isPlaying
+        )
+    }
 
     /**
      * Connect to Spotify App Remote without showing auth view.
@@ -76,6 +125,7 @@ class SpotifyManager(
         appRemote = null
         _isConnected.value = false
         _playerState.value = MusicPlayerState()
+        updateAnchor(0L, false)
     }
 
     fun play() {
@@ -111,6 +161,7 @@ class SpotifyManager(
 
     fun seekTo(positionMs: Long) {
         appRemote?.playerApi?.seekTo(positionMs)
+        updateAnchor(positionMs, _playerState.value.isPlaying)
     }
 
     fun getLibraryState(uri: String, onResult: (Boolean) -> Unit) {
@@ -154,21 +205,24 @@ class SpotifyManager(
         _isConnected.value = false
         _playerState.value = MusicPlayerState()
         lastImageUri = null
+        updateAnchor(0L, false)
     }
 
     private fun updatePlayerState(state: PlayerState) {
         val track = state.track
         if (track == null) {
             _playerState.value = MusicPlayerState()
+            updateAnchor(0L, false)
             return
         }
 
+        val isPlaying = !state.isPaused
         _playerState.value = MusicPlayerState(
             trackName = track.name,
             artistName = track.artist.name,
             albumName = track.album.name,
             albumArt = _playerState.value.albumArt, // keep current until new one loads
-            isPlaying = !state.isPaused,
+            isPlaying = isPlaying,
             durationMs = track.duration,
             positionMs = state.playbackPosition,
             isPodcast = track.isPodcast,
@@ -176,6 +230,7 @@ class SpotifyManager(
             repeatMode = state.playbackOptions.repeatMode,
             trackUri = track.uri ?: ""
         )
+        updateAnchor(state.playbackPosition, isPlaying)
 
         // Load album art
         track.imageUri?.let { uri -> loadAlbumArt(uri) }

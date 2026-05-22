@@ -145,16 +145,7 @@ fun NowPlayingScreen(
 
     LaunchedEffect(Unit) { spotifyManager.connect() }
 
-    var displayPositionMs by remember { mutableStateOf(0L) }
-    LaunchedEffect(state.positionMs, state.isPlaying) {
-        displayPositionMs = state.positionMs
-        if (state.isPlaying) {
-            while (true) {
-                delay(1000)
-                displayPositionMs += 1000
-            }
-        }
-    }
+    val displayPositionMs by spotifyManager.livePositionMs.collectAsState()
 
     var isScrubbing by remember { mutableStateOf(false) }
     var scrubFraction by remember { mutableStateOf(0f) }
@@ -447,7 +438,6 @@ fun NowPlayingScreen(
                                         if (state.durationMs > 0) {
                                             val seekMs = (scrubFraction * state.durationMs).toLong()
                                             spotifyManager.seekTo(seekMs)
-                                            displayPositionMs = seekMs
                                         }
                                     } finally {
                                         isScrubbing = false
@@ -754,7 +744,6 @@ fun NowPlayingScreen(
                 onCollapse = { isLyricsFullScreen = false },
                 onSeek = { positionMs ->
                     spotifyManager.seekTo(positionMs)
-                    displayPositionMs = positionMs
                 }
             )
         }
