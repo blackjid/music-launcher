@@ -511,7 +511,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
-                            imageVector = if (state.repeatMode == 2) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                            imageVector = if (state.repeatMode == 1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                             contentDescription = "Repeat",
                             tint = if (state.repeatMode > 0) FgPrimary else FgMuted,
                             modifier = Modifier.size(24.dp)
