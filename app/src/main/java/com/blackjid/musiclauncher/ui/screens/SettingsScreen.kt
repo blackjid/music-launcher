@@ -44,10 +44,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackjid.musiclauncher.R
+import com.blackjid.musiclauncher.data.OrientationMode
 import com.blackjid.musiclauncher.data.SettingsStore
 import com.blackjid.musiclauncher.profile.Profile
 import com.blackjid.musiclauncher.profile.ProfileRepository
 import com.blackjid.musiclauncher.ui.theme.SpotifyGreen
+
+private val ORIENTATION_OPTIONS = listOf(
+    OrientationMode.LANDSCAPE to "Landscape",
+    OrientationMode.PORTRAIT to "Portrait",
+    OrientationMode.AUTO to "Auto"
+)
 
 private val TIMEOUT_OPTIONS = listOf(
     5_000L to "5 sec",
@@ -66,6 +73,7 @@ fun SettingsScreen(
     val profiles by profileRepository.profiles.collectAsState()
     var selectedTimeout by remember { mutableLongStateOf(settingsStore.phoneSpeakerTimeoutMs) }
     var lyricsEnabled by remember { mutableStateOf(settingsStore.lyricsEnabled) }
+    var selectedOrientation by remember { mutableStateOf(settingsStore.orientationMode) }
 
     Box(
         modifier = Modifier
@@ -160,6 +168,44 @@ fun SettingsScreen(
                             settingsStore.lyricsEnabled = it
                         }
                     )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = "Screen orientation",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Lock the app to a specific orientation or follow the sensor",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ORIENTATION_OPTIONS.forEach { (mode, label) ->
+                        val selected = selectedOrientation == mode
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (selected) SpotifyGreen else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable {
+                                    selectedOrientation = mode
+                                    settingsStore.orientationMode = mode
+                                }
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 14.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))

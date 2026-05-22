@@ -1,6 +1,7 @@
 package com.blackjid.musiclauncher
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -9,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
+import com.blackjid.musiclauncher.data.OrientationMode
 import com.blackjid.musiclauncher.kiosk.KioskManager
 import com.blackjid.musiclauncher.spotify.SpotifyTokenManager
 import com.blackjid.musiclauncher.spotify.SpotifyUserApi
@@ -39,6 +41,17 @@ class MainActivity : ComponentActivity() {
         kioskManager.lockDown()
 
         val app = applicationContext as MusicLauncherApp
+
+        lifecycleScope.launch {
+            app.settingsStore.orientationModeFlow.collect { mode ->
+                requestedOrientation = when (mode) {
+                    OrientationMode.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    OrientationMode.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                    OrientationMode.AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                }
+            }
+        }
+
         lifecycleScope.launch {
             app.spotifyManager.playerState.collect { state ->
                 if (state.isPlaying) {
